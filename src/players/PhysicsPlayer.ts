@@ -6,26 +6,25 @@ import {
     Vector3,
     PhysicsAggregate,
     PhysicsShapeType,
-    PhysicsBody
+    PhysicsBody,
+    Mesh
 } from '@babylonjs/core';
 
-export class Player {
-    public mesh;
+export class PhysicsPlayer {
+    public mesh: Mesh;
     public aggregate: PhysicsAggregate;
     private material: StandardMaterial;
-    private targetAlpha: number = 1.0;
-    private currentAlpha: number = 1.0;
+    private speed: number;
 
-    constructor(scene: Scene) {
+    constructor(scene: Scene, speed: number = 7.5) {
+        this.speed = speed;
+        
         this.mesh = MeshBuilder.CreateCapsule("player", { radius: 0.4, height: 1.5 }, scene);
         this.mesh.position = new Vector3(0, 5, 0);
         
         this.material = new StandardMaterial("playerMat", scene);
-        this.material.diffuseColor = new Color3(0, 0, 0); // Turn off diffuse
-        this.material.specularColor = new Color3(0, 0, 0); // No shine
-        this.material.emissiveColor = new Color3(0, 0.6, 1); // Use only emissive for flat color
-        this.material.disableLighting = true; // Completely ignore scene lighting
-        this.material.alpha = 1.0;
+        this.material.emissiveColor = new Color3(0, 0.6, 1);
+        this.material.disableLighting = true;
         this.mesh.material = this.material;
         
         this.aggregate = new PhysicsAggregate(
@@ -39,7 +38,6 @@ export class Player {
             inertia: new Vector3(0, 0, 0) 
         });
         
-        // Add damping to prevent bouncing and sliding
         this.aggregate.body.setLinearDamping(0.5);
         this.aggregate.body.setAngularDamping(1.0);
     }
@@ -52,13 +50,22 @@ export class Player {
         return this.aggregate.body;
     }
 
-    public setTransparency(shouldBeTransparent: boolean): void {
-        this.targetAlpha = shouldBeTransparent ? 0.3 : 1.0;
+    public move(inputDirection: Vector3): void {
+        const vel = this.body.getLinearVelocity();
+        const horizontalVelocity = inputDirection.scale(this.speed);
+        
+        this.body.setLinearVelocity(new Vector3(
+            horizontalVelocity.x, 
+            vel.y, 
+            horizontalVelocity.z
+        ));
+    }
+
+    public setTransparency(isTransparent: boolean): void {
+        this.material.alpha = isTransparent ? 0.3 : 1.0;
     }
 
     public update(): void {
-        // Smooth alpha transition
-        this.currentAlpha += (this.targetAlpha - this.currentAlpha) * 0.15;
-        this.material.alpha = this.currentAlpha;
+        // Override in subclass if needed
     }
 }

@@ -19,27 +19,6 @@
             touch-action: none; 
             outline: none; 
         }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            pointer-events: none;
-            border-radius: 8px;
-            max-width: 300px;
-        }
-        #score-box {
-            margin-top: 10px;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #0096FF;
-            background: rgba(0,0,0,0.5);
-            padding: 5px;
-            border-radius: 4px;
-            text-align: center;
-        }
         #fps-box {
             position: absolute;
             top: 5px;
@@ -48,28 +27,10 @@
             color: #ffff00;
             font-family: monospace;
         }
-        #debug-box {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 0.9em;
-            color: #00ff00;
-            background: rgba(0,0,0,0.8);
-            padding: 10px;
-            font-family: monospace;
-            border-radius: 4px;
-            line-height: 1.6;
-            z-index: 1000;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <div id="fps-box">FPS: 0</div>
-        <div id="score-box">Coverage: 0.0%</div>
-    </div>
-    <div id="debug-box">Debug Info</div>
+    <div id="fps-box">FPS: 0</div>
     <canvas id="renderCanvas"></canvas>
     
     <script type="module" src="/src/main.ts"></script>
