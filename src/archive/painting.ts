@@ -1,4 +1,4 @@
-import { Scene, Ray, DynamicTexture, Vector2, Mesh, Vector3 } from '@babylonjs/core';
+import { Scene, Ray, Mesh, Vector3 } from '@babylonjs/core';
 
 export interface Splat {
     meshName: string;
