@@ -123,7 +123,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     });
 
     // Setup player
-    const USE_KINEMATIC = false;
+    const USE_KINEMATIC = true;
     let player: PhysicsPlayer | KinematicsPlayer;
     
     if (USE_KINEMATIC) {
@@ -176,6 +176,16 @@ export async function createScene(engine: Engine): Promise<Scene> {
             player.move(inputDir, deltaTime);
         } else {
             player.move(inputDir);
+        }
+    });
+
+    scene.onKeyboardObservable.add((kbInfo) => {
+        if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
+            if (kbInfo.event.key === "p") {
+                // Toggle shadows on/off
+                dirLight.shadowEnabled = !dirLight.shadowEnabled;
+                console.log("Shadows:", dirLight.shadowEnabled);
+            }
         }
     });
 
