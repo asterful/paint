@@ -9,22 +9,34 @@ interface SweepResult {
 
 export class CharacterController {
     private scene: Scene;
-    private position: Vector3;
     private capsuleRadius: number;
     private capsuleHeight: number;
     private mesh: Mesh;
     private capsuleShape: PhysicsShapeCapsule;
     private havokPlugin: HavokPlugin;
+    
+    // Movement settings
     private readonly maxIterations: number = 5;
     private readonly collisionOffset: number = 0.01;
+    
+    // Simulation state - these are the "physics truth"
+    private transientPosition: Vector3;        // Where physics says we ARE right now
+    private previousPosition: Vector3;         // Where physics said we WERE last tick
+    
+    // Fixed timestep accumulator
+    private timeLeftOver: number = 0;          // Leftover time that hasn't been simulated yet
+    private readonly fixedTimeStep: number = 1/60; // Physics updates 60 times per second
     
 
     constructor(scene: Scene, mesh: Mesh, radius: number, height: number) {
         this.scene = scene;
         this.mesh = mesh;
-        this.position = mesh.position.clone();
         this.capsuleRadius = radius;
         this.capsuleHeight = height;
+        
+        // Initialize positions
+        this.transientPosition = mesh.position.clone();
+        this.previousPosition = mesh.position.clone();
         
         this.capsuleShape = new PhysicsShapeCapsule(
             new Vector3(0, -this.capsuleHeight * 0.5 + this.capsuleRadius, 0),
@@ -95,14 +107,36 @@ export class CharacterController {
         return this.getDirectionTangentToSurface(velocity, hitNormal);
     }
 
-    public move(velocity: Vector3, deltaTime: number): void {
+    public update(velocity: Vector3, deltaTime: number): void {
+        deltaTime = Math.min(deltaTime, 0.1);
+        this.timeLeftOver += deltaTime;
+        
+        while (this.timeLeftOver >= this.fixedTimeStep) {
+            this.previousPosition = this.transientPosition.clone();
+            this.simulate(velocity, this.fixedTimeStep);
+            this.timeLeftOver -= this.fixedTimeStep;
+        }
+        const alpha = this.timeLeftOver / this.fixedTimeStep;
+        
+        this.mesh.position = Vector3.Lerp(
+            this.previousPosition,
+            this.transientPosition,
+            alpha
+        );
+    }
+    
+    /**
+     * Run one physics step - this is the actual character movement simulation
+     * Always runs with a fixed deltaTime (1/60 second)
+     */
+    private simulate(velocity: Vector3, deltaTime: number): void {
         // Calculate total distance to move this frame
         const velocityMagnitude = velocity.length();
         if (velocityMagnitude === 0) return;
         
         let remainingDistance = velocityMagnitude * deltaTime;
         let remainingDirection = velocity.normalize();
-        let currentPosition = this.position.clone();
+        let currentPosition = this.transientPosition.clone();
         
         // Iteratively sweep and slide along surfaces
         for (let i = 0; i < this.maxIterations; i++) {
@@ -121,8 +155,23 @@ export class CharacterController {
             }
         }
         
-        // Update position and sync mesh
-        this.position = currentPosition;
-        this.mesh.position.copyFrom(this.position);
+        // Update simulated position
+        this.transientPosition = currentPosition;
+    }
+    
+    /**
+     * Get the current simulated position (not the visual mesh position)
+     */
+    public getPosition(): Vector3 {
+        return this.transientPosition.clone();
+    }
+    
+    /**
+     * Set the simulated position directly (bypasses interpolation for one frame)
+     */
+    public setPosition(position: Vector3): void {
+        this.transientPosition = position.clone();
+        this.previousPosition = position.clone();
+        this.mesh.position.copyFrom(position);
     }
 }

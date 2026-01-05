@@ -47,7 +47,7 @@ export class KinematicsPlayer {
             inputDirection.z * this.speed
         );
         
-        this.controller.move(velocity, deltaTime);
+        this.controller.update(velocity, deltaTime);
     }
 
     public setTransparency(isTransparent: boolean): void {
