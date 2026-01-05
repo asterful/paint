@@ -19,13 +19,13 @@ export class CharacterController {
     private readonly maxIterations: number = 5;
     private readonly collisionOffset: number = 0.01;
     
-    // Simulation state - these are the "physics truth"
-    private transientPosition: Vector3;        // Where physics says we ARE right now
-    private previousPosition: Vector3;         // Where physics said we WERE last tick
+    // Simulation state
+    private transientPosition: Vector3;
+    private previousPosition: Vector3;
     
     // Fixed timestep accumulator
-    private timeLeftOver: number = 0;          // Leftover time that hasn't been simulated yet
-    private readonly fixedTimeStep: number = 1/60; // Physics updates 60 times per second
+    private timeLeftOver: number = 0;
+    private readonly fixedTimeStep: number = 1/60;
     
 
     constructor(scene: Scene, mesh: Mesh, radius: number, height: number) {
