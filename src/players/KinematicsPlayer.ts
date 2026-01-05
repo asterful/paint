@@ -13,18 +13,26 @@ export class KinematicsPlayer {
     private material: StandardMaterial;
     private speed: number;
     private controller: CharacterController;
+    private capsuleRadius: number = 0.4;
+    private capsuleHeight: number = 1.5;
+    private gravity: number = -5; // constant downward velocity (m/s)
 
-    constructor(scene: Scene, controller: CharacterController, speed: number = 7.5) {
+    constructor(scene: Scene, speed: number) {
         this.speed = speed;
-        this.controller = controller;
         
-        this.mesh = MeshBuilder.CreateCapsule("kinematic_player", { radius: 0.4, height: 1.5 }, scene);
+        this.mesh = MeshBuilder.CreateCapsule("player", { 
+            radius: this.capsuleRadius, 
+            height: this.capsuleHeight 
+        }, scene);
         this.mesh.position = new Vector3(0, 5, 0);
         
         this.material = new StandardMaterial("kinematicPlayerMat", scene);
         this.material.emissiveColor = new Color3(1, 0.6, 0); // Orange
         this.material.disableLighting = true;
         this.mesh.material = this.material;
+        
+        // Create controller after mesh is ready
+        this.controller = new CharacterController(scene, this.mesh, this.capsuleRadius, this.capsuleHeight);
     }
 
     get position(): Vector3 {
@@ -32,7 +40,14 @@ export class KinematicsPlayer {
     }
 
     public move(inputDirection: Vector3, deltaTime: number): void {
-        this.controller.move(this, inputDirection.scale(this.speed), deltaTime);
+        // Create velocity vector with constant downward velocity
+        const velocity = new Vector3(
+            inputDirection.x * this.speed,
+            this.gravity,
+            inputDirection.z * this.speed
+        );
+        
+        this.controller.move(velocity, deltaTime);
     }
 
     public setTransparency(isTransparent: boolean): void {
