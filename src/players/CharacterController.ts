@@ -1,4 +1,4 @@
-import { Vector3, Scene, Mesh, Quaternion, HavokPlugin, PhysicsShapeCapsule, ShapeCastResult, MeshBuilder, Color3, StandardMaterial } from '@babylonjs/core';
+import { Vector3, Scene, Mesh, Quaternion, HavokPlugin, PhysicsShapeCapsule, ShapeCastResult } from '@babylonjs/core';
 import { AdvancedDynamicTexture, TextBlock } from '@babylonjs/gui';
 
 interface SweepResult {
@@ -267,7 +267,7 @@ export class CharacterController {
         
         while (this.timeLeftOver >= this.fixedTimeStep) {
             this.previousPosition = this.transientPosition.clone();
-            this.preSimulate(this.fixedTimeStep);
+            this.preSimulate();
             this.simulate(velocity, this.fixedTimeStep);
             this.timeLeftOver -= this.fixedTimeStep;
         }
@@ -282,16 +282,14 @@ export class CharacterController {
         this.updateDebugUI();
     }
     
-    private preSimulate(deltaTime: number): void {
+    private preSimulate(): void {
         this.lastGroundingStatus = { ...this.groundingStatus };
-        
         this.groundingStatus = {
             isStableOnGround: false,
             foundAnyGround: false,
             groundNormal: Vector3.Up()
         };
         this.lastMovementIterationFoundAnyGround = false;
-        
         this.probeGround();
     }
     
