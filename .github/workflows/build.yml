@@ -1,0 +1,29 @@
+name: Capture Build Info
+
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  capture-info:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Capture git info
+        run: |
+          echo "{" > build-info.json
+          echo "  \"hash\": \"$(git rev-parse --short HEAD)\"," >> build-info.json
+          echo "  \"message\": \"$(git log -1 --pretty=%B | head -n 1 | sed 's/"/\\"/g')\"" >> build-info.json
+          echo "}" >> build-info.json
+          cat build-info.json
+      
+      - name: Commit build info
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add build-info.json
+          git diff --staged --quiet || git commit -m "Update build info [skip ci]"
+          git push
