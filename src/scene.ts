@@ -9,6 +9,7 @@ import {
     ActionManager,
     ExecuteCodeAction,
     Color3,
+    KeyboardEventTypes,
     PBRMaterial,
     DirectionalLight,
     ShadowGenerator,
@@ -180,7 +181,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     });
 
     scene.onKeyboardObservable.add((kbInfo) => {
-        if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
+        if (kbInfo.type === KeyboardEventTypes.KEYDOWN) {
             if (kbInfo.event.key === "p") {
                 // Toggle shadows on/off
                 dirLight.shadowEnabled = !dirLight.shadowEnabled;
