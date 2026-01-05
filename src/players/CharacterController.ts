@@ -18,6 +18,7 @@ export class CharacterController {
     // Movement settings
     private readonly maxIterations: number = 5;
     private readonly collisionOffset: number = 0.01;
+    private readonly maxStableSlopeAngle: number = 60; // degrees
     
     // Simulation state
     private transientPosition: Vector3;
@@ -95,16 +96,51 @@ export class CharacterController {
     }
 
 
+    /**
+     * Determines if a surface normal is stable (walkable) based on slope angle
+     */
+    private isStableOnNormal(normal: Vector3): boolean {
+        const characterUp = Vector3.Up();
+        const angleInRadians = Math.acos(Vector3.Dot(characterUp, normal));
+        const angleInDegrees = angleInRadians * (180 / Math.PI);
+        return angleInDegrees <= this.maxStableSlopeAngle;
+    }
+
+    /**
+     * Gets the direction tangent to a surface, maintaining intended movement direction
+     */
     private getDirectionTangentToSurface(direction: Vector3, surfaceNormal: Vector3): Vector3 {
         const characterUp = Vector3.Up();
         const directionRight = Vector3.Cross(direction, characterUp);
+        
+        // Handle edge case: moving perfectly up/down
+        if (directionRight.lengthSquared() < 0.0001) {
+            const dot = Vector3.Dot(direction, surfaceNormal);
+            return direction.subtract(surfaceNormal.scale(dot)).normalize();
+        }
+        
         const tangentDirection = Vector3.Cross(surfaceNormal, directionRight);
         return tangentDirection.normalize();
     }
 
 
+    /**
+     * Projects velocity based on surface stability
+     * - Stable surfaces (slopes): Full speed maintained via tangent projection
+     * - Unstable surfaces (walls): Speed reduced via planar projection
+     */
     private handleVelocityProjection(velocity: Vector3, hitNormal: Vector3): Vector3 {
-        return this.getDirectionTangentToSurface(velocity, hitNormal);
+        const isStable = this.isStableOnNormal(hitNormal);
+        
+        if (isStable) {
+            // Stable surface (walkable slope) - maintain full speed
+            const tangentDirection = this.getDirectionTangentToSurface(velocity, hitNormal);
+            return tangentDirection.scale(velocity.length());
+        } else {
+            // Unstable surface (wall/steep slope) - project onto plane, losing speed
+            const dot = Vector3.Dot(velocity, hitNormal);
+            return velocity.subtract(hitNormal.scale(dot));
+        }
     }
 
     public update(velocity: Vector3, deltaTime: number): void {
@@ -148,7 +184,14 @@ export class CharacterController {
                 const moveDistance = Math.max(0, hit.distance - this.collisionOffset);
                 currentPosition.addInPlace(remainingDirection.scale(moveDistance));
                 remainingDistance -= hit.distance;
-                remainingDirection = this.handleVelocityProjection(remainingDirection, hit.normal);
+                
+                // Project velocity and update direction/magnitude
+                const velocityBeforeProjection = remainingDirection.scale(remainingDistance / deltaTime);
+                const projectedVelocity = this.handleVelocityProjection(velocityBeforeProjection, hit.normal);
+                
+                // Update remaining movement
+                remainingDistance = projectedVelocity.length() * deltaTime;
+                remainingDirection = projectedVelocity.lengthSquared() > 0 ? projectedVelocity.normalize() : remainingDirection;
             } else {
                 currentPosition.addInPlace(remainingDirection.scale(remainingDistance));
                 break;

@@ -74,7 +74,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     // Create a steep ramp at 0,0
     const ramp = MeshBuilder.CreateBox("ramp", { width: 10, height: 1, depth: 10 }, scene);
     ramp.position = new Vector3(11, 2.5, 5);
-    ramp.rotation.z = Math.PI / 3; // 30 degree angle
+    ramp.rotation.z = Math.PI / 6; // 30 degree angle
     
     const rampMaterial = new StandardMaterial("rampMat", scene);
     rampMaterial.diffuseColor = new Color3(0.8, 0.4, 0.2);
