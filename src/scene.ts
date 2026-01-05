@@ -184,6 +184,6 @@ export async function createScene(engine: Engine): Promise<Scene> {
     setInterval(() => {
         fpsText.innerText = `${scene.getEngine().getFps().toFixed(0)} fps`;
     }, 100);
-
+    (window as any).scene = scene;
     return scene;
 }
