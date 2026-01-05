@@ -19,18 +19,39 @@
             touch-action: none; 
             outline: none; 
         }
-        #fps-box {
+        #debug-container {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            font-size: 0.8em;
-            color: #ffff00;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
             font-family: monospace;
+            text-align: right;
+        }
+        #fps-box {
+            font-size: 1.5em;
+            color: #ffff00;
+            margin-bottom: 5px;
+        }
+        #commit-hash-box {
+            font-size: 1.5em;
+            color: #ffff00;
+            margin-bottom: 5px;
+        }
+        #commit-message-box {
+            font-size: 1.5em;
+            color: #ffff00;
+            max-width: 400px;
         }
     </style>
 </head>
 <body>
-    <div id="fps-box">FPS: 0</div>
+    <div id="debug-container">
+        <div id="fps-box">FPS: 0</div>
+        <div id="commit-hash-box"></div>
+        <div id="commit-message-box"></div>
+    </div>
     <canvas id="renderCanvas"></canvas>
     
     <script type="module" src="/src/main.ts"></script>

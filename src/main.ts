@@ -1,6 +1,9 @@
 import { Engine } from '@babylonjs/core';
 import { createScene } from './scene';
 
+declare const __COMMIT_MESSAGE__: string;
+declare const __COMMIT_HASH__: string;
+
 window.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
     const engine = new Engine(canvas, true);
@@ -18,4 +21,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     canvas.addEventListener("click", () => {
         canvas.focus();
     });
+
+    // Display commit info
+    const commitHashBox = document.getElementById("commit-hash-box")!;
+    commitHashBox.innerText = `Build: ${__COMMIT_HASH__}`;
+    
+    const commitMessageBox = document.getElementById("commit-message-box")!;
+    commitMessageBox.innerText = __COMMIT_MESSAGE__;
 });
