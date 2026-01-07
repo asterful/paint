@@ -47,6 +47,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     // Setup skybox
     const skybox = MeshBuilder.CreateBox("skyBox", { size: 1000.0 }, scene);
     const skyboxMaterial = new StandardMaterial("skyBox", scene);
+    skyboxMaterial.fogEnabled = false;
     skyboxMaterial.backFaceCulling = false;
     skyboxMaterial.disableLighting = true;
     skyboxMaterial.reflectionTexture = new CubeTexture("/skybox/skybox", scene, ["_px.png", "_py.png", "_pz.png", "_nx.png", "_ny.png", "_nz.png"]);
@@ -71,6 +72,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     dirLight.position = new Vector3(0, 200, 0);
     dirLight.intensity = 2.5;
     dirLight.autoUpdateExtends = false;
+    disLight.shadowEnabled = false;
 
     const staticShadowGenerator = new ShadowGenerator(8192, dirLight);
     staticShadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
