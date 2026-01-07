@@ -30,6 +30,11 @@ export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
     scene.clearColor = new Color3(0.5, 0.7, 1) as any;
 
+    scene.fogMode = Scene.FOGMODE_LINEAR;
+    scene.fogColor = envColor;
+    scene.fogStart = 20.0;
+    scene.fogEnd = 150.0;
+
     const havokInstance = await HavokPhysics();
     const hk = new HavokPlugin(true, havokInstance);
     scene.enablePhysics(new Vector3(0, -9.81, 0), hk);
