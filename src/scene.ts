@@ -124,7 +124,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     });
 
     // Setup player
-    const USE_KINEMATIC = true;
+    const USE_KINEMATIC = false;
     let player: PhysicsPlayer | KinematicsPlayer;
     
     if (USE_KINEMATIC) {
