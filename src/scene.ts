@@ -30,6 +30,8 @@ export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
     scene.clearColor = new Color3(0.5, 0.7, 1) as any;
 
+    const envColor = new Color3(0.5, 0.7, 1);
+    scene.clearColor = envColor as any;
     scene.fogMode = Scene.FOGMODE_LINEAR;
     scene.fogColor = envColor;
     scene.fogStart = 20.0;
