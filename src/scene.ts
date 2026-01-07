@@ -82,17 +82,17 @@ export async function createScene(engine: Engine): Promise<Scene> {
     staticShadowGenerator.useContactHardeningShadow = true;
 
     // Create a steep ramp at 0,0
-    const ramp = MeshBuilder.CreateBox("ramp", { width: 10, height: 1, depth: 10 }, scene);
-    ramp.position = new Vector3(11, 2.5, 5);
-    ramp.rotation.z = Math.PI / 6; // 30 degree angle
+    // const ramp = MeshBuilder.CreateBox("ramp", { width: 10, height: 1, depth: 10 }, scene);
+    // ramp.position = new Vector3(11, 2.5, 5);
+    // ramp.rotation.z = Math.PI / 6; // 30 degree angle
     
-    const rampMaterial = new StandardMaterial("rampMat", scene);
-    rampMaterial.diffuseColor = new Color3(0.8, 0.4, 0.2);
-    ramp.material = rampMaterial;
+    // const rampMaterial = new StandardMaterial("rampMat", scene);
+    // rampMaterial.diffuseColor = new Color3(0.8, 0.4, 0.2);
+    // ramp.material = rampMaterial;
     
-    new PhysicsAggregate(ramp, PhysicsShapeType.BOX, { mass: 0, friction: 0.5, restitution: 0 }, scene);
-    ramp.receiveShadows = true;
-    staticShadowGenerator.addShadowCaster(ramp);
+    // new PhysicsAggregate(ramp, PhysicsShapeType.BOX, { mass: 0, friction: 0.5, restitution: 0 }, scene);
+    // ramp.receiveShadows = true;
+    // staticShadowGenerator.addShadowCaster(ramp);
 
     // Setup physics and shadows for meshes
     scene.meshes.forEach(mesh => {
