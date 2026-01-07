@@ -72,7 +72,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     dirLight.position = new Vector3(0, 200, 0);
     dirLight.intensity = 2.5;
     dirLight.autoUpdateExtends = false;
-    disLight.shadowEnabled = false;
+    dirLight.shadowEnabled = false;
 
     const staticShadowGenerator = new ShadowGenerator(8192, dirLight);
     staticShadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
