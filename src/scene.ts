@@ -137,9 +137,9 @@ export async function createScene(engine: Engine): Promise<Scene> {
     let player: PhysicsPlayer | KinematicsPlayer;
     
     if (USE_KINEMATIC) {
-        player = new KinematicsPlayer(scene, 7.5);
+        player = new KinematicsPlayer(scene, 10);
     } else {
-        player = new PhysicsPlayer(scene, 7.5);
+        player = new PhysicsPlayer(scene, 10);
     }
 
     // Setup camera
