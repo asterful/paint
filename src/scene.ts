@@ -12,9 +12,7 @@ import {
     KeyboardEventTypes,
     PBRMaterial,
     DirectionalLight,
-    ShadowGenerator,
     ImportMeshAsync,
-    RenderTargetTexture,
     CubeTexture,
     MeshBuilder,
     StandardMaterial,
@@ -34,7 +32,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     scene.clearColor = envColor as any;
     scene.fogMode = Scene.FOGMODE_LINEAR;
     scene.fogColor = envColor;
-    scene.fogStart = 20.0;
+    scene.fogStart = 50.0;
     scene.fogEnd = 150.0;
 
     const havokInstance = await HavokPhysics();
@@ -71,15 +69,6 @@ export async function createScene(engine: Engine): Promise<Scene> {
     const dirLight = new DirectionalLight("dirLight", new Vector3(1, -0.7, 1), scene);
     dirLight.position = new Vector3(0, 200, 0);
     dirLight.intensity = 2.5;
-    dirLight.autoUpdateExtends = false;
-    dirLight.shadowEnabled = false;
-
-    const staticShadowGenerator = new ShadowGenerator(8192, dirLight);
-    staticShadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
-    staticShadowGenerator.setDarkness(0);
-    staticShadowGenerator.bias = 0.0005;
-    staticShadowGenerator.getShadowMap()!.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
-    staticShadowGenerator.useContactHardeningShadow = true;
 
     // Create a steep ramp at 0,0
     // const ramp = MeshBuilder.CreateBox("ramp", { width: 10, height: 1, depth: 10 }, scene);
@@ -116,6 +105,30 @@ export async function createScene(engine: Engine): Promise<Scene> {
             
             newMat.metallic = 0;
             newMat.roughness = 0.7;
+            
+            // // Apply lightmap as ambient occlusion (only darkens, doesn't brighten)
+            // const lightmapPath = `/textures/${mesh.name}_Lightmap.png`;
+            // const lightmapTexture = new Texture(lightmapPath, scene, true, false, Texture.TRILINEAR_SAMPLINGMODE,
+            //     () => {
+            //         // Successfully loaded
+            //         console.log(`✓ Lightmap applied to ${mesh.name}`);
+            //     }, 
+            //     () => {
+            //         // Failed to load - remove ambient reference
+            //         if (newMat.ambientTexture === lightmapTexture) {
+            //             newMat.ambientTexture = null;
+            //         }
+            //     }
+            // );
+            
+            // // Set UV2 channel for lightmap coordinates
+            // lightmapTexture.coordinatesIndex = 1;
+            
+            // // Use as ambient texture (AO) - only darkens, never brightens
+            // newMat.ambientTexture = lightmapTexture;
+            // newMat.useAmbientInGrayScale = true; // Use grayscale for consistent shadowing
+            // newMat.ambientTextureStrength = 1.4; // 0.0-1.0, lower = less darkening
+            
             mesh.material = newMat;
         }
         
@@ -125,11 +138,9 @@ export async function createScene(engine: Engine): Promise<Scene> {
         
         new PhysicsAggregate(mesh, PhysicsShapeType.MESH, { mass: 0, friction: 0.5, restitution: 0 }, scene);
         mesh.checkCollisions = true;
-        mesh.receiveShadows = true;
         mesh.isPickable = true;
         mesh.layerMask = 0x0FFFFFFF;
         mesh.refreshBoundingInfo(false, false);
-        staticShadowGenerator.addShadowCaster(mesh);
     });
 
     // Setup player
@@ -189,15 +200,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
         }
     });
 
-    scene.onKeyboardObservable.add((kbInfo) => {
-        if (kbInfo.type === KeyboardEventTypes.KEYDOWN) {
-            if (kbInfo.event.key === "p") {
-                // Toggle shadows on/off
-                dirLight.shadowEnabled = !dirLight.shadowEnabled;
-                console.log("Shadows:", dirLight.shadowEnabled);
-            }
-        }
-    });
+
 
     // FPS display
     const fpsText = document.getElementById("fps-box")!;

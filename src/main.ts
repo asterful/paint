@@ -7,9 +7,18 @@ declare const __COMMIT_HASH__: string;
 window.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
     const engine = new Engine(canvas, true);
+    
+    const loadingScreen = document.getElementById("loading-screen")!;
 
     const scene = await createScene(engine);
-
+    
+    // Wait for all assets to be ready
+    await scene.whenReadyAsync();
+    
+    // Hide loading screen
+    loadingScreen.classList.add('hidden');
+    
+    // Start rendering
     engine.runRenderLoop(() => {
         scene.render();
     });
