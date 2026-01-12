@@ -39,7 +39,7 @@ export class ThirdPersonCamera {
         this.camera.attachControl(canvas, false);
         this.camera.inputs.clear();
         this.camera.minZ = 0.01;
-        this.camera.maxZ = 1000;
+        this.camera.maxZ = 160;
         
         this.setupPointerLock(canvas);
         this.setupMouseControls(canvas);
