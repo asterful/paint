@@ -9,7 +9,6 @@ import {
     ActionManager,
     ExecuteCodeAction,
     Color3,
-    KeyboardEventTypes,
     PBRMaterial,
     DirectionalLight,
     ImportMeshAsync,
