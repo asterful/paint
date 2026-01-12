@@ -79,6 +79,22 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+        }
+        .crosshair-dot {
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.8);
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -90,6 +106,9 @@
         <div id="fps-box">FPS: 0</div>
         <div id="commit-hash-box"></div>
         <div id="commit-message-box"></div>
+    </div>
+    <div id="crosshair">
+        <div class="crosshair-dot"></div>
     </div>
     <canvas id="renderCanvas"></canvas>
     

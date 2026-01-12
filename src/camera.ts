@@ -23,6 +23,8 @@ export class ThirdPersonCamera {
     private targetPitch: number = 0.5;
     private smoothedPlayerPos: Vector3 = Vector3.Zero();
     private followSmoothness: number = 0.15;
+    private shoulderOffset: number = 1.6;
+    private heightOffset: number = 0.8;
 
     constructor(scene: Scene, player: PhysicsPlayer | KinematicsPlayer, canvas: HTMLCanvasElement) {
         this.scene = scene;
@@ -86,16 +88,22 @@ export class ThirdPersonCamera {
         this.smoothedPlayerPos.z += (playerPos.z - this.smoothedPlayerPos.z) * followFactor;
 
         const playerScale = this.player.mesh.scaling.x;
-        const lookTarget = this.smoothedPlayerPos.add(new Vector3(0, 0.45 * playerScale, 0));
+        const lookTarget = this.smoothedPlayerPos.add(new Vector3(0, (0.45 + this.heightOffset) * playerScale, 0));
 
         const horizontalOffset = this.distance * Math.cos(this.pitch);
         const desiredX = lookTarget.x - horizontalOffset * Math.sin(this.yaw);
         const desiredY = lookTarget.y + this.distance * Math.sin(this.pitch);
         const desiredZ = lookTarget.z - horizontalOffset * Math.cos(this.yaw);
         
-        const desiredPosition = new Vector3(desiredX, desiredY, desiredZ);
+        let desiredPosition = new Vector3(desiredX, desiredY, desiredZ);
 
-        const direction = desiredPosition.subtract(lookTarget);
+        const rightVector = this.getRightDirection();
+        const shoulderOffsetVec = rightVector.scale(this.shoulderOffset * playerScale);
+        desiredPosition = desiredPosition.add(shoulderOffsetVec);
+        
+        const offsetLookTarget = lookTarget.add(shoulderOffsetVec.scale(0.3));
+
+        const direction = desiredPosition.subtract(offsetLookTarget);
         const rayLength = direction.length();
         const ray = new Ray(lookTarget, direction.normalize(), rayLength);
         
@@ -123,13 +131,13 @@ export class ThirdPersonCamera {
         this.currentDistance += (targetDistance - this.currentDistance) * smoothFactor;
 
         const normalizedDirection = direction.normalize();
-        const finalPosition = lookTarget.add(normalizedDirection.scale(this.currentDistance));
+        const finalPosition = offsetLookTarget.add(normalizedDirection.scale(this.currentDistance));
 
         this.camera.position = finalPosition;
 
-        this.camera.setTarget(lookTarget);
+        this.camera.setTarget(offsetLookTarget);
 
-        const cameraToLookTarget = lookTarget.subtract(finalPosition);
+        const cameraToLookTarget = offsetLookTarget.subtract(finalPosition);
         const checkRay = new Ray(finalPosition, cameraToLookTarget.normalize(), cameraToLookTarget.length());
         const viewBlockCheck = this.scene.pickWithRay(checkRay, (mesh: AbstractMesh) => {
             return mesh.name === "player";
@@ -156,5 +164,13 @@ export class ThirdPersonCamera {
 
     public getCamera(): UniversalCamera {
         return this.camera;
+    }
+
+    public getAimRay(): Ray {
+        return this.camera.getForwardRay(10000);
+    }
+
+    public getAimDirection(): Vector3 {
+        return this.camera.getDirection(Vector3.Forward());
     }
 }
