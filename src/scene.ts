@@ -21,7 +21,7 @@ import HavokPhysics from '@babylonjs/havok';
 import { PhysicsPlayer } from './players/PhysicsPlayer';
 import { KinematicsPlayer } from './players/KinematicsPlayer';
 import { ThirdPersonCamera } from './camera';
-import { paint } from './painting';
+import { Painter } from './painting';
 
 export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
@@ -110,6 +110,9 @@ export async function createScene(engine: Engine): Promise<Scene> {
     const thirdPersonCamera = new ThirdPersonCamera(scene, player, canvas);
     scene.activeCamera = thirdPersonCamera.getCamera();
 
+    // Setup painting
+    let painter = new Painter(scene, 0.5);
+
     // Input handling
     const inputMap: { [key: string]: boolean } = {};
     
@@ -120,7 +123,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
             const hit = scene.pickWithRay(ray);
             
             if (hit && hit.hit && hit.pickedPoint) {
-                paint(scene, hit.pickedPoint);
+                painter.paintAt(hit.pickedPoint);
             }
         }
     });
