@@ -8,6 +8,7 @@ pnpm-lock.yaml
 dist/
 build/
 *.local
+build-info.json
 
 # Environment variables
 .env

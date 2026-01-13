@@ -17,7 +17,7 @@ export class ThirdPersonCamera {
     private baseDistance: number = 8;
     private distance: number = 8;
     private currentDistance: number = 8;
-    private mouseSensitivity: number = 0.0022;
+    private mouseSensitivity: number = 0.0018;
     private isPointerLocked: boolean = false;
     private targetYaw: number = 0;
     private targetPitch: number = 0.5;

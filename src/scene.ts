@@ -69,20 +69,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     dirLight.position = new Vector3(0, 200, 0);
     dirLight.intensity = 2.5;
 
-    // Create a steep ramp at 0,0
-    // const ramp = MeshBuilder.CreateBox("ramp", { width: 10, height: 1, depth: 10 }, scene);
-    // ramp.position = new Vector3(11, 2.5, 5);
-    // ramp.rotation.z = Math.PI / 6; // 30 degree angle
-    
-    // const rampMaterial = new StandardMaterial("rampMat", scene);
-    // rampMaterial.diffuseColor = new Color3(0.8, 0.4, 0.2);
-    // ramp.material = rampMaterial;
-    
-    // new PhysicsAggregate(ramp, PhysicsShapeType.BOX, { mass: 0, friction: 0.5, restitution: 0 }, scene);
-    // ramp.receiveShadows = true;
-    // staticShadowGenerator.addShadowCaster(ramp);
-
-    // Setup physics and shadows for meshes
+    // Setup physics
     scene.meshes.forEach(mesh => {
         if (mesh.name === 'player') return;
         if (mesh.name === 'skyBox') return;
@@ -108,30 +95,6 @@ export async function createScene(engine: Engine): Promise<Scene> {
             
             newMat.metallic = 0;
             newMat.roughness = 0.7;
-            
-            // // Apply lightmap as ambient occlusion (only darkens, doesn't brighten)
-            // const lightmapPath = `/textures/${mesh.name}_Lightmap.png`;
-            // const lightmapTexture = new Texture(lightmapPath, scene, true, false, Texture.TRILINEAR_SAMPLINGMODE,
-            //     () => {
-            //         // Successfully loaded
-            //         console.log(`✓ Lightmap applied to ${mesh.name}`);
-            //     }, 
-            //     () => {
-            //         // Failed to load - remove ambient reference
-            //         if (newMat.ambientTexture === lightmapTexture) {
-            //             newMat.ambientTexture = null;
-            //         }
-            //     }
-            // );
-            
-            // // Set UV2 channel for lightmap coordinates
-            // lightmapTexture.coordinatesIndex = 1;
-            
-            // // Use as ambient texture (AO) - only darkens, never brightens
-            // newMat.ambientTexture = lightmapTexture;
-            // newMat.useAmbientInGrayScale = true; // Use grayscale for consistent shadowing
-            // newMat.ambientTextureStrength = 1.4; // 0.0-1.0, lower = less darkening
-            
             mesh.material = newMat;
         }
         
