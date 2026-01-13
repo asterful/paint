@@ -122,8 +122,8 @@ export async function createScene(engine: Engine): Promise<Scene> {
             const ray = thirdPersonCamera.getAimRay();
             const hit = scene.pickWithRay(ray);
             
-            if (hit && hit.hit && hit.pickedPoint) {
-                painter.paintAt(hit.pickedPoint);
+            if (hit && hit.hit) {
+                painter.paintAtPickInfo(hit);
             }
         }
     });
