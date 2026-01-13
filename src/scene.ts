@@ -6,8 +6,6 @@ import {
     PhysicsAggregate,
     PhysicsShapeType,
     HavokPlugin,
-    ActionManager,
-    ExecuteCodeAction,
     Color3,
     PBRMaterial,
     DirectionalLight,
@@ -15,7 +13,8 @@ import {
     CubeTexture,
     MeshBuilder,
     StandardMaterial,
-    Texture
+    Texture,
+    KeyboardEventTypes
 } from '@babylonjs/core';
 import '@babylonjs/loaders';
 import HavokPhysics from '@babylonjs/havok';
@@ -55,7 +54,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     skybox.renderingGroupId = 0;
     skybox.isPickable = false;
 
-    // Lighting and shadows
+    // Lighting
     scene.createDefaultEnvironment({
         createGround: false,
         createSkybox: false
@@ -71,7 +70,6 @@ export async function createScene(engine: Engine): Promise<Scene> {
 
     // Setup physics
     scene.meshes.forEach(mesh => {
-        if (mesh.name === 'player') return;
         if (mesh.name === 'skyBox') return;
         
         if (mesh.getTotalVertices() === 0) {
@@ -79,27 +77,6 @@ export async function createScene(engine: Engine): Promise<Scene> {
             mesh.layerMask = 0x0FFFFFFF;
             console.log(`Skipping physics for mesh: ${mesh.name}`);
             return;
-        }
-        
-        if (mesh.material) {
-            const oldMat = mesh.material as PBRMaterial;
-            const newMat = new PBRMaterial(mesh.name + "_mat", scene);
-            
-            if (oldMat.albedoTexture) {
-                newMat.albedoTexture = oldMat.albedoTexture;
-                // Enable anisotropic filtering for sharper textures at oblique angles
-                if (oldMat.albedoTexture.anisotropicFilteringLevel !== undefined) {
-                    oldMat.albedoTexture.anisotropicFilteringLevel = 16;
-                }
-            }
-            
-            newMat.metallic = 0;
-            newMat.roughness = 0.7;
-            mesh.material = newMat;
-        }
-        
-        if ('convertToFlatShadedMesh' in mesh) {
-            (mesh as any).convertToFlatShadedMesh();
         }
         
         new PhysicsAggregate(mesh, PhysicsShapeType.MESH, { mass: 0, friction: 0.5, restitution: 0 }, scene);
@@ -126,19 +103,15 @@ export async function createScene(engine: Engine): Promise<Scene> {
 
     // Input handling
     const inputMap: { [key: string]: boolean } = {};
-    scene.actionManager = new ActionManager(scene);
-    scene.actionManager.registerAction(
-        new ExecuteCodeAction(
-            ActionManager.OnKeyDownTrigger,
-            (evt) => (inputMap[evt.sourceEvent.key.toLowerCase()] = true)
-        )
-    );
-    scene.actionManager.registerAction(
-        new ExecuteCodeAction(
-            ActionManager.OnKeyUpTrigger,
-            (evt) => (inputMap[evt.sourceEvent.key.toLowerCase()] = false)
-        )
-    );
+    
+    scene.onKeyboardObservable.add((kbInfo) => {
+        const key = kbInfo.event.key.toLowerCase();
+        if (kbInfo.type === KeyboardEventTypes.KEYDOWN) {
+            inputMap[key] = true;
+        } else if (kbInfo.type === KeyboardEventTypes.KEYUP) {
+            inputMap[key] = false;
+        }
+    });
 
     // Main update loop
     scene.onBeforeRenderObservable.add(() => {
@@ -166,13 +139,12 @@ export async function createScene(engine: Engine): Promise<Scene> {
         }
     });
 
-
-
     // FPS display
     const fpsText = document.getElementById("fps-box")!;
     setInterval(() => {
         fpsText.innerText = `${scene.getEngine().getFps().toFixed(0)} fps`;
     }, 100);
     (window as any).scene = scene;
+
     return scene;
 }

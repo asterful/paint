@@ -27,10 +27,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         engine.resize();
     });
 
-    canvas.addEventListener("click", () => {
-        canvas.focus();
-    });
-
     // Display commit info
     const commitHashBox = document.getElementById("commit-hash-box")!;
     commitHashBox.innerText = `Build: ${__COMMIT_HASH__}`;

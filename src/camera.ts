@@ -3,7 +3,8 @@ import {
     UniversalCamera, 
     Vector3, 
     Ray,
-    AbstractMesh
+    AbstractMesh,
+    PointerEventTypes
 } from '@babylonjs/core';
 import { PhysicsPlayer } from './players/PhysicsPlayer';
 import { KinematicsPlayer } from './players/KinematicsPlayer';
@@ -45,8 +46,10 @@ export class ThirdPersonCamera {
     }
 
     private setupPointerLock(canvas: HTMLCanvasElement): void {
-        canvas.addEventListener('click', () => {
-            canvas.requestPointerLock();
+        this.scene.onPointerObservable.add((pointerInfo) => {
+            if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
+                canvas.requestPointerLock();
+            }
         });
 
         document.addEventListener('pointerlockchange', () => {
@@ -55,20 +58,21 @@ export class ThirdPersonCamera {
     }
 
     private setupMouseControls(canvas: HTMLCanvasElement): void {
-        canvas.addEventListener('mousemove', (event) => {
-            if (!this.isPointerLocked) return;
-
-            this.targetYaw += event.movementX * this.mouseSensitivity;
-            this.targetPitch += event.movementY * this.mouseSensitivity;
-            this.targetPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 2.5, this.targetPitch));
-        });
-
-        // Mouse wheel for zoom
-        canvas.addEventListener('wheel', (event) => {
-            event.preventDefault();
-            const playerScale = this.player.mesh.scaling.x;
-            this.distance += event.deltaY * 0.01;
-            this.distance = Math.max(3 * playerScale, Math.min(15 * playerScale, this.distance));
+        this.scene.onPointerObservable.add((pointerInfo) => {
+            if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
+                if (!this.isPointerLocked) return;
+                
+                const event = pointerInfo.event as PointerEvent;
+                this.targetYaw += event.movementX * this.mouseSensitivity;
+                this.targetPitch += event.movementY * this.mouseSensitivity;
+                this.targetPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 2.5, this.targetPitch));
+            } else if (pointerInfo.type === PointerEventTypes.POINTERWHEEL) {
+                const event = pointerInfo.event as WheelEvent;
+                event.preventDefault();
+                const playerScale = this.player.mesh.scaling.x;
+                this.distance += event.deltaY * 0.01;
+                this.distance = Math.max(3 * playerScale, Math.min(15 * playerScale, this.distance));
+            }
         });
     }
 
