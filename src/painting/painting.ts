@@ -1,4 +1,4 @@
-import { Scene, Vector3, MeshBuilder, PBRMaterial } from "@babylonjs/core";
+import { Scene, Vector3, PBRMaterial } from "@babylonjs/core";
 import { PaintMaterialPlugin } from "./paintMaterial";
 
 export class Painter {

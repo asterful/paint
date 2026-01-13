@@ -3,6 +3,7 @@ import {
     PBRBaseMaterial,
     UniformBuffer,
     Color3,
+    RenderTargetTexture,
 } from '@babylonjs/core';
 
 
@@ -11,9 +12,17 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
     paintRadius = 0.08;
     paintCenter: [number, number] = [0.5, 0.5];
     paintColor = new Color3(0.0, 0.2, 0.8);
+    paintTexture: RenderTargetTexture;
 
     constructor(material: PBRBaseMaterial) {
         super(material, "PaintPlugin", 200, {});
+        
+        const scene = material.getScene();
+        this.paintTexture = new RenderTargetTexture(
+            "paintTexture_" + material.name,
+            512,
+            scene
+        );
         this._enable(true);
     }
 
@@ -38,14 +47,15 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                 "CUSTOM_FRAGMENT_DEFINITIONS": `
                     #ifdef UV2
                         varying vec2 vPaintUV;
+                        uniform sampler2D paintTextureSampler;
                     #endif
                 `,
                 "CUSTOM_FRAGMENT_MAIN_END": `
                     #ifdef UV2
-                        vec2 uvDiff = vPaintUV - paintCenter;
-                        float distanceFromCenter = length(uvDiff);
+                        vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
                         
-                        if (distanceFromCenter < paintRadius) {
+                        // If red channel has paint data, show it
+                        if (paintData.r > 0.5) {
                             gl_FragColor = vec4(paintColor, 1.0);
                         }
                     #endif
@@ -59,10 +69,19 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         uniformBuffer.updateFloat2("paintCenter", this.paintCenter[0], this.paintCenter[1]);
         uniformBuffer.updateFloat("paintRadius", this.paintRadius);
         uniformBuffer.updateColor3("paintColor", this.paintColor);
+        
+        const effect = this._material.getEffect();
+        if (effect) {
+            effect.setTexture("paintTextureSampler", this.paintTexture);
+        }
     }
 
     getClassName(): string {
         return "PaintMaterialPlugin";
+    }
+
+    getSamplers(): string[] {
+        return ["paintTextureSampler"];
     }
 
     getUniforms(): { ubo?: Array<{ name: string; size: number; type: string }> } {
