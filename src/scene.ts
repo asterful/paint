@@ -7,20 +7,21 @@ import {
     PhysicsShapeType,
     HavokPlugin,
     Color3,
-    PBRMaterial,
     DirectionalLight,
     ImportMeshAsync,
     CubeTexture,
     MeshBuilder,
     StandardMaterial,
     Texture,
-    KeyboardEventTypes
+    KeyboardEventTypes,
+    PointerEventTypes,
 } from '@babylonjs/core';
 import '@babylonjs/loaders';
 import HavokPhysics from '@babylonjs/havok';
 import { PhysicsPlayer } from './players/PhysicsPlayer';
 import { KinematicsPlayer } from './players/KinematicsPlayer';
 import { ThirdPersonCamera } from './camera';
+import { paint } from './painting';
 
 export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
@@ -111,6 +112,18 @@ export async function createScene(engine: Engine): Promise<Scene> {
 
     // Input handling
     const inputMap: { [key: string]: boolean } = {};
+    
+    // Click handling for painting
+    scene.onPointerObservable.add((pointerInfo) => {
+        if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
+            const ray = thirdPersonCamera.getAimRay();
+            const hit = scene.pickWithRay(ray);
+            
+            if (hit && hit.hit && hit.pickedPoint) {
+                paint(scene, hit.pickedPoint);
+            }
+        }
+    });
     
     scene.onKeyboardObservable.add((kbInfo) => {
         const key = kbInfo.event.key.toLowerCase();
