@@ -40,14 +40,23 @@ export class KinematicsPlayer {
     }
 
     public move(inputDirection: Vector3, deltaTime: number): void {
-        // Create velocity vector with constant downward velocity
+        // Only apply gravity when not grounded
+        const verticalVelocity = this.controller.isGrounded() ? 0 : this.gravity;
+        
+        // Create velocity vector
         const velocity = new Vector3(
             inputDirection.x * this.speed,
-            this.gravity,
+            verticalVelocity,
             inputDirection.z * this.speed
         );
         
         this.controller.update(velocity, deltaTime);
+        
+        // Rotate character to face movement direction
+        if (inputDirection.length() > 0.1) {
+            const targetAngle = Math.atan2(inputDirection.x, inputDirection.z);
+            this.mesh.rotation.y = targetAngle;
+        }
     }
 
     public setTransparency(isTransparent: boolean): void {

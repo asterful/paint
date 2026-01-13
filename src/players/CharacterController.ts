@@ -374,4 +374,9 @@ export class CharacterController {
         this.previousPosition = position.clone();
         this.mesh.position.copyFrom(position);
     }
+
+    // Check if character is grounded
+    public isGrounded(): boolean {
+        return this.groundingStatus.isStableOnGround;
+    }
 }

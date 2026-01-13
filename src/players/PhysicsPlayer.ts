@@ -59,6 +59,12 @@ export class PhysicsPlayer {
             vel.y, 
             horizontalVelocity.z
         ));
+        
+        // Rotate character to face movement direction
+        if (inputDirection.length() > 0.1) {
+            const targetAngle = Math.atan2(inputDirection.x, inputDirection.z);
+            this.mesh.rotation.y = targetAngle;
+        }
     }
 
     public setTransparency(isTransparent: boolean): void {

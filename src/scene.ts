@@ -100,6 +100,10 @@ export async function createScene(engine: Engine): Promise<Scene> {
             
             if (oldMat.albedoTexture) {
                 newMat.albedoTexture = oldMat.albedoTexture;
+                // Enable anisotropic filtering for sharper textures at oblique angles
+                if (oldMat.albedoTexture.anisotropicFilteringLevel !== undefined) {
+                    oldMat.albedoTexture.anisotropicFilteringLevel = 16;
+                }
             }
             
             newMat.metallic = 0;

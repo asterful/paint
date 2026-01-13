@@ -17,14 +17,14 @@ export class ThirdPersonCamera {
     private baseDistance: number = 8;
     private distance: number = 8;
     private currentDistance: number = 8;
-    private mouseSensitivity: number = 0.003;
+    private mouseSensitivity: number = 0.0022;
     private isPointerLocked: boolean = false;
     private targetYaw: number = 0;
     private targetPitch: number = 0.5;
     private smoothedPlayerPos: Vector3 = Vector3.Zero();
     private followSmoothness: number = 0.15;
-    private shoulderOffset: number = 1.6;
-    private heightOffset: number = 0.8;
+    private shoulderOffset: number = 1.9;
+    private heightOffset: number = 1;
 
     constructor(scene: Scene, player: PhysicsPlayer | KinematicsPlayer, canvas: HTMLCanvasElement) {
         this.scene = scene;
@@ -38,9 +38,8 @@ export class ThirdPersonCamera {
         this.camera = new UniversalCamera("thirdPersonCamera", new Vector3(0, 5, -10), scene);
         this.camera.attachControl(canvas, false);
         this.camera.inputs.clear();
-        this.camera.minZ = 0.01;
-        this.camera.maxZ = 160;
-        
+        this.camera.minZ = 0.1;
+        this.camera.maxZ = 1000;
         this.setupPointerLock(canvas);
         this.setupMouseControls(canvas);
     }
@@ -147,19 +146,17 @@ export class ThirdPersonCamera {
     }
 
     public getForwardDirection(): Vector3 {
-        return new Vector3(
-            Math.sin(this.yaw),
-            0,
-            Math.cos(this.yaw)
-        ).normalize();
+        // Get the actual direction the camera is looking at (accounting for shoulder offset)
+        const forward = this.camera.getDirection(Vector3.Forward());
+        // Project onto horizontal plane (ignore Y component)
+        return new Vector3(forward.x, 0, forward.z).normalize();
     }
 
     public getRightDirection(): Vector3 {
-        return new Vector3(
-            Math.cos(this.yaw),
-            0,
-            -Math.sin(this.yaw)
-        ).normalize();
+        // Get the actual right direction of the camera
+        const right = this.camera.getDirection(Vector3.Right());
+        // Project onto horizontal plane (ignore Y component)
+        return new Vector3(right.x, 0, right.z).normalize();
     }
 
     public getCamera(): UniversalCamera {
