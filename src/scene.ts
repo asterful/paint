@@ -40,6 +40,14 @@ export async function createScene(engine: Engine): Promise<Scene> {
     // Load environment
     await ImportMeshAsync("./city.glb", scene);
     
+    // Enable anisotropic filtering for all textures
+    scene.materials.forEach(material => {
+        const textures = material.getActiveTextures();
+        textures.forEach(texture => {
+            texture.anisotropicFilteringLevel = 16;
+        });
+    });
+    
     // Setup skybox
     const skybox = MeshBuilder.CreateBox("skyBox", { size: 1000.0 }, scene);
     const skyboxMaterial = new StandardMaterial("skyBox", scene);

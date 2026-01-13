@@ -42,7 +42,7 @@ export class ThirdPersonCamera {
         this.camera.minZ = 0.1;
         this.camera.maxZ = 1000;
         this.setupPointerLock(canvas);
-        this.setupMouseControls(canvas);
+        this.setupMouseControls();
     }
 
     private setupPointerLock(canvas: HTMLCanvasElement): void {
@@ -57,7 +57,7 @@ export class ThirdPersonCamera {
         });
     }
 
-    private setupMouseControls(canvas: HTMLCanvasElement): void {
+    private setupMouseControls(): void {
         this.scene.onPointerObservable.add((pointerInfo) => {
             if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
                 if (!this.isPointerLocked) return;
