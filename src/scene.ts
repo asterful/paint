@@ -21,7 +21,7 @@ import HavokPhysics from '@babylonjs/havok';
 import { PhysicsPlayer } from './players/PhysicsPlayer';
 import { KinematicsPlayer } from './players/KinematicsPlayer';
 import { ThirdPersonCamera } from './camera';
-import { Painter } from './painting';
+import { Painter } from './painting/painting';
 
 export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
