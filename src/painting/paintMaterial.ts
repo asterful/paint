@@ -30,7 +30,6 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
             false
         );
         
-        // Initialize to black once
         const engine = scene.getEngine();
         engine.onEndFrameObservable.addOnce(() => {
             this.paintTexture.renderList = [];
@@ -86,20 +85,16 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
             uniforms: ["world", "paintSphereCenter", "paintSphereRadius"]
         });
         
-        // Enable alpha blending so paint accumulates
-        this.uvSpaceMaterial.alphaMode = 2; // ALPHA_ADD
+        this.uvSpaceMaterial.backFaceCulling = false;
     }
 
-    // Paint at 3D world position with a sphere
     paintAt(hitPoint: Vector3, mesh: any, radius: number = 0.5): void {
         if (!this.uvSpaceMaterial) return;
         
-        // Set paint sphere parameters
         this.uvSpaceMaterial.setVector3("paintSphereCenter", hitPoint);
         this.uvSpaceMaterial.setFloat("paintSphereRadius", radius);
         this.uvSpaceMaterial.setMatrix("world", mesh.getWorldMatrix());
         
-        // Render mesh into paint texture using UV space shader
         const originalMaterial = mesh.material;
         mesh.material = this.uvSpaceMaterial;
         
@@ -153,11 +148,6 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         uniformBuffer.updateFloat("paintRadius", this.paintRadius);
         uniformBuffer.updateColor3("paintColor", this.paintColor);
         uniformBuffer.setTexture('paintTextureSampler', this.paintTexture);
-        
-        // const effect = this._material.getEffect();
-        // if (effect) {
-        //     effect.setTexture("paintTextureSampler", this.paintTexture);
-        // }
     }
 
     getClassName(): string {
