@@ -73,8 +73,13 @@ export class UVSpacePainter {
                 float dist = distance(vWorldPosition, paintSphereCenter);
                 
                 if (dist < paintSphereRadius) {
-                    // Calculate radial falloff (1.0 at center, 0.0 at edge)
-                    float falloff = 1.0 - smoothstep(0.0, paintSphereRadius, dist);
+                    // Create a "solid core" look instead of a whispy spray
+                    // 0.0 to 0.8 radius = 1.0 intensity (Solid paint)
+                    // 0.8 to 1.0 radius = fades to 0.0 (Soft Edge)
+                    float edgeSoftness = 0.2; 
+                    float softStart = paintSphereRadius * (1.0 - edgeSoftness);
+                    
+                    float falloff = 1.0 - smoothstep(softStart, paintSphereRadius, dist);
                     
                     gl_FragColor = vec4(falloff, 0.0, 0.0, 1.0);
                 } else {

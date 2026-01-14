@@ -111,7 +111,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     scene.activeCamera = thirdPersonCamera.getCamera();
 
     // Setup painting
-    let painter = new Painter(scene, 0.5);
+    let painter = new Painter(scene, 1);
 
     // Input handling
     const inputMap: { [key: string]: boolean } = {};
