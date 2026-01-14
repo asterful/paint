@@ -3,106 +3,35 @@ import {
     PBRBaseMaterial,
     UniformBuffer,
     Color3,
-    RenderTargetTexture,
-    ShaderMaterial,
-    Effect,
     Vector3,
-    Color4,
+    AbstractMesh,
 } from '@babylonjs/core';
+import { UVSpacePainter } from './uvSpacePainter';
 
 
 export class PaintMaterialPlugin extends MaterialPluginBase {
-    
-    paintRadius = 0.08;
-    paintCenter: [number, number] = [0.5, 0.5];
-    paintColor = new Color3(0.0, 0.2, 0.8);
-    paintTexture: RenderTargetTexture;
-    private uvSpaceMaterial: ShaderMaterial | null = null;
+
+    public paintColor = new Color3(0.0, 0.2, 0.8);
+    private uvPainter: UVSpacePainter;
 
     constructor(material: PBRBaseMaterial) {
         super(material, "PaintPlugin", 200, {});
         
         const scene = material.getScene();
-        this.paintTexture = new RenderTargetTexture(
-            "paintTexture_" + material.name,
-            512,
+        this.uvPainter = new UVSpacePainter(
             scene,
-            false
+            "paintTexture_" + material.name,
+            512
         );
         
-        const engine = scene.getEngine();
-        engine.onEndFrameObservable.addOnce(() => {
-            this.paintTexture.renderList = [];
-            engine.bindFramebuffer(this.paintTexture.renderTarget!);
-            engine.clear(new Color4(0, 0, 0, 1), true, true, true);
-            engine.unBindFramebuffer(this.paintTexture.renderTarget!);
-        });
-        
-        this.setupUVSpacePainting(scene);
         this._enable(true);
     }
 
-    private setupUVSpacePainting(scene: any): void {
-        // Shader that renders mesh in UV space and tests sphere distance in world space
-        Effect.ShadersStore["uvSpacePaintVertexShader"] = `
-            precision highp float;
-            attribute vec3 position;
-            attribute vec2 uv2;
-            
-            uniform mat4 world;
-            varying vec3 vWorldPosition;
-            
-            void main() {
-                // Pass world position to fragment shader
-                vWorldPosition = (world * vec4(position, 1.0)).xyz;
-                
-                // Use UV2 as clip space position (maps mesh into texture space)
-                gl_Position = vec4(uv2 * 2.0 - 1.0, 0.0, 1.0);
-            }
-        `;
-        
-        Effect.ShadersStore["uvSpacePaintFragmentShader"] = `
-            precision highp float;
-            varying vec3 vWorldPosition;
-            
-            uniform vec3 paintSphereCenter;
-            uniform float paintSphereRadius;
-            
-            void main() {
-                float dist = distance(vWorldPosition, paintSphereCenter);
-                
-                // Debug: visualize distance
-                if (dist < paintSphereRadius) {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red for inside sphere
-                } else {
-                    gl_FragColor = vec4(0.0, 1.0, 0.0, 0.1); // Green for outside
-                }
-            }
-        `;
-        
-        this.uvSpaceMaterial = new ShaderMaterial("uvSpacePaint", scene, "uvSpacePaint", {
-            attributes: ["position", "uv2"],
-            uniforms: ["world", "paintSphereCenter", "paintSphereRadius"]
-        });
-        
-        this.uvSpaceMaterial.backFaceCulling = false;
+
+    public paintAt(hitPoint: Vector3, mesh: AbstractMesh, radius: number = 0.5): void {
+        this.uvPainter.paintAt(hitPoint, mesh, radius);
     }
 
-    paintAt(hitPoint: Vector3, mesh: any, radius: number = 0.5): void {
-        if (!this.uvSpaceMaterial) return;
-        
-        this.uvSpaceMaterial.setVector3("paintSphereCenter", hitPoint);
-        this.uvSpaceMaterial.setFloat("paintSphereRadius", radius);
-        this.uvSpaceMaterial.setMatrix("world", mesh.getWorldMatrix());
-        
-        const originalMaterial = mesh.material;
-        mesh.material = this.uvSpaceMaterial;
-        
-        this.paintTexture.renderList = [mesh];
-        this.paintTexture.render();
-        
-        mesh.material = originalMaterial;
-    }
 
     getCustomCode(shaderType: string): { [pointName: string]: string } | null {
         if (shaderType === "vertex") {
@@ -130,9 +59,10 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                 `,
                 "CUSTOM_FRAGMENT_MAIN_END": `
                     #ifdef UV2
+                        // Sample the paint texture
                         vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
                         
-                        // If red channel has paint data, show it
+                        // If red channel indicates paint, overlay the paint color
                         if (paintData.r > 0.5) {
                             gl_FragColor = vec4(paintColor, 1.0);
                         }
@@ -143,11 +73,10 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         return null;
     }
 
+
     bindForSubMesh(uniformBuffer: UniformBuffer): void {
-        uniformBuffer.updateFloat2("paintCenter", this.paintCenter[0], this.paintCenter[1]);
-        uniformBuffer.updateFloat("paintRadius", this.paintRadius);
         uniformBuffer.updateColor3("paintColor", this.paintColor);
-        uniformBuffer.setTexture('paintTextureSampler', this.paintTexture);
+        uniformBuffer.setTexture('paintTextureSampler', this.uvPainter.paintTexture);
     }
 
     getClassName(): string {
@@ -161,10 +90,13 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
     getUniforms(): { ubo?: Array<{ name: string; size: number; type: string }> } {
         return {
             ubo: [
-                { name: "paintCenter", size: 2, type: "vec2" },
-                { name: "paintRadius", size: 1, type: "float" },
                 { name: "paintColor", size: 3, type: "vec3" }
             ]
         };
+    }
+
+    
+    dispose(): void {
+        this.uvPainter.dispose();
     }
 }
