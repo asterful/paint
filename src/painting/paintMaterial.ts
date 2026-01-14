@@ -59,13 +59,12 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                 `,
                 "CUSTOM_FRAGMENT_MAIN_END": `
                     #ifdef UV2
-                        // Sample the paint texture
+                        // Sample the paint texture - red channel contains intensity (0-1)
                         vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
+                        float paintIntensity = paintData.r;
                         
-                        // If red channel indicates paint, overlay the paint color
-                        if (paintData.r > 0.5) {
-                            gl_FragColor = vec4(paintColor, 1.0);
-                        }
+                        // Blend paint color with the base material using paint intensity
+                        gl_FragColor.rgb = mix(gl_FragColor.rgb, paintColor, paintIntensity);
                     #endif
                 `
             };

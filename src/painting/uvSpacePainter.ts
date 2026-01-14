@@ -6,6 +6,7 @@ import {
     Color4,
     Scene,
     AbstractMesh,
+    Engine,
 } from '@babylonjs/core';
 
 
@@ -72,7 +73,10 @@ export class UVSpacePainter {
                 float dist = distance(vWorldPosition, paintSphereCenter);
                 
                 if (dist < paintSphereRadius) {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                    // Calculate radial falloff (1.0 at center, 0.0 at edge)
+                    float falloff = 1.0 - smoothstep(0.0, paintSphereRadius, dist);
+                    
+                    gl_FragColor = vec4(falloff, 0.0, 0.0, 1.0);
                 } else {
                     discard;
                 }
@@ -88,9 +92,13 @@ export class UVSpacePainter {
         });
 
         material.backFaceCulling = false;
-        material.alphaMode = 4;
+        material.alphaMode = Engine.ALPHA_ADD;
         material.needDepthPrePass = false;
         material.disableDepthWrite = true;
+        
+        // Force alpha blending to be enabled
+        material.needAlphaBlending = () => true;
+        
         return material;
     }
 
