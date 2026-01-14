@@ -16,16 +16,19 @@ export class UVSpacePainter {
     constructor(scene: Scene, textureName: string, textureSize: number = 512) {
         this.paintTexture = new RenderTargetTexture(
             textureName,
-            textureSize,
+            { width: textureSize, height: textureSize },
             scene,
-            false
+            { generateMipMaps: false, generateDepthBuffer: false }
         );
 
+        // Prevent auto-clearing by adding empty observer to onClearObservable
+        this.paintTexture.onClearObservable.add(() => {});
+
+        // Initial clear only once
         const engine = scene.getEngine();
         engine.onEndFrameObservable.addOnce(() => {
-            this.paintTexture.renderList = [];
             engine.bindFramebuffer(this.paintTexture.renderTarget!);
-            engine.clear(new Color4(0, 0, 0, 1), true, true, true);
+            engine.clear(new Color4(0, 0, 0, 0), true, false, false);
             engine.unBindFramebuffer(this.paintTexture.renderTarget!);
         });
 
@@ -68,11 +71,10 @@ export class UVSpacePainter {
             void main() {
                 float dist = distance(vWorldPosition, paintSphereCenter);
                 
-                // Debug: visualize distance
                 if (dist < paintSphereRadius) {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red for inside sphere
+                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
                 } else {
-                    gl_FragColor = vec4(0.0, 1.0, 0.0, 0.1); // Green for outside
+                    discard;
                 }
             }
         `;
@@ -86,6 +88,9 @@ export class UVSpacePainter {
         });
 
         material.backFaceCulling = false;
+        material.alphaMode = 4;
+        material.needDepthPrePass = false;
+        material.disableDepthWrite = true;
         return material;
     }
 
