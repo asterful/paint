@@ -25,7 +25,7 @@ export class ThirdPersonCamera {
     private smoothedPlayerPos: Vector3 = Vector3.Zero();
     private followSmoothness: number = 0.15;
     private shoulderOffset: number = 1.9;
-    private heightOffset: number = 1;
+    private heightOffset: number = 0.3;
 
     constructor(scene: Scene, player: PhysicsPlayer | KinematicsPlayer, canvas: HTMLCanvasElement) {
         this.scene = scene;

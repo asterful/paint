@@ -22,6 +22,7 @@ import { PhysicsPlayer } from './players/PhysicsPlayer';
 import { KinematicsPlayer } from './players/KinematicsPlayer';
 import { ThirdPersonCamera } from './camera';
 import { Painter } from './painting/painting';
+import { Projectile } from './projectiles/projectile';
 
 export async function createScene(engine: Engine): Promise<Scene> {
     const scene = new Scene(engine);
@@ -111,7 +112,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     scene.activeCamera = thirdPersonCamera.getCamera();
 
     // Setup painting
-    let painter = new Painter(scene, 1);
+    let painter = new Painter(scene, 1.3);
 
     // Input handling
     const inputMap: { [key: string]: boolean } = {};
@@ -119,12 +120,22 @@ export async function createScene(engine: Engine): Promise<Scene> {
     // Click handling for painting
     scene.onPointerObservable.add((pointerInfo) => {
         if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
+             // Raycast from camera to find target point 
             const ray = thirdPersonCamera.getAimRay();
-            const hit = scene.pickWithRay(ray);
             
-            if (hit && hit.hit) {
-                painter.paintAtPickInfo(hit);
-            }
+            // Calculate spawn position (Player chest/gun position)
+            const playerPos = player.position.clone();
+            playerPos.y += 0.8; // Chest height
+            
+            // Use the camera's forward direction directly
+            // This prevents shooting backwards if an object is between camera and player
+            const direction = ray.direction;
+            
+            // Move spawn point slightly forward to avoid clipping player
+            const spawnPos = playerPos.add(direction.scale(0.5));
+
+            // Fire projectile (faster speed for dart gun feel)
+            new Projectile(scene, spawnPos, direction, 80, painter);
         }
     });
     
