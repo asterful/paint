@@ -8,7 +8,6 @@ import {
     AbstractMesh,
     Engine,
     PostProcess,
-    Texture,
     Constants
 } from '@babylonjs/core';
 
@@ -25,7 +24,11 @@ export class UVSpacePainter {
             textureName + "_buffer",
             { width: textureSize, height: textureSize },
             scene,
-            { generateMipMaps: false, generateDepthBuffer: false, type: Constants.TEXTURETYPE_UNSIGNED_BYTE }
+            { 
+                generateMipMaps: false, 
+                generateDepthBuffer: true, 
+                type: Constants.TEXTURETYPE_UNSIGNED_BYTE 
+            }
         );
 
         // 2. Create the output texture (dilated result used by material)
@@ -33,7 +36,11 @@ export class UVSpacePainter {
             textureName,
             { width: textureSize, height: textureSize },
             scene,
-            { generateMipMaps: false, generateDepthBuffer: false, type: Constants.TEXTURETYPE_UNSIGNED_BYTE }
+            { 
+                generateMipMaps: false, 
+                generateDepthBuffer: true, 
+                type: Constants.TEXTURETYPE_UNSIGNED_BYTE 
+            }
         );
 
         // Prevent auto-clearing
@@ -43,11 +50,15 @@ export class UVSpacePainter {
         // Initial clear
         const engine = scene.getEngine();
         engine.onEndFrameObservable.addOnce(() => {
-            // function to clear a specific RTT
             const clearRTT = (rtt: RenderTargetTexture) => {
-                engine.bindFramebuffer(rtt.renderTarget!);
-                engine.clear(new Color4(0, 0, 0, 0), true, true, true);
-                engine.unBindFramebuffer(rtt.renderTarget!);
+                if (!rtt.renderTarget) return; 
+                try {
+                    engine.bindFramebuffer(rtt.renderTarget);
+                    engine.clear(new Color4(0, 0, 0, 0), true, true, true);
+                    engine.unBindFramebuffer(rtt.renderTarget);
+                } catch (e) {
+                    console.error("Clear RTT failed:", e);
+                }
             };
             clearRTT(this.bufferTexture);
             clearRTT(this.paintTexture);
@@ -146,7 +157,7 @@ export class UVSpacePainter {
             ["textureSampler"],
             1.0,
             null,
-            Texture.NEAREST_SAMPLINGMODE,
+            Constants.TEXTURE_NEAREST_SAMPLINGMODE,
             scene.getEngine(),
             false,
             null,
@@ -170,8 +181,8 @@ export class UVSpacePainter {
 
         material.backFaceCulling = false;
         material.alphaMode = Engine.ALPHA_ADD;
-        material.needDepthPrePass = false;
         material.disableDepthWrite = true;
+        material.needDepthPrePass = false;
         
         // Force alpha blending to be enabled
         material.needAlphaBlending = () => true;
@@ -181,18 +192,23 @@ export class UVSpacePainter {
 
 
     public paintAt(hitPoint: Vector3, mesh: AbstractMesh, radius: number): void {
+        // Chrome requires shader to be compiled and ready before rendering
+        if (!this.uvSpaceMaterial.isReady(mesh)) {
+            console.warn("[UVSpacePainter] Material not ready for mesh " + mesh.name);
+            return;
+        }
+
         this.uvSpaceMaterial.setVector3("paintSphereCenter", hitPoint);
         this.uvSpaceMaterial.setFloat("paintSphereRadius", radius);
         this.uvSpaceMaterial.setMatrix("world", mesh.getWorldMatrix());
 
-        const originalMaterial = mesh.material;
-        mesh.material = this.uvSpaceMaterial;
 
-        // 1. Paint into the accumulation buffer
         this.bufferTexture.renderList = [mesh];
-        this.bufferTexture.render();
+        this.bufferTexture.setMaterialForRendering(mesh, this.uvSpaceMaterial);
         
-        mesh.material = originalMaterial;
+        this.bufferTexture.render();
+
+        this.bufferTexture.setMaterialForRendering(mesh, undefined); 
 
         // 2. Perform UV dilation from buffer to the final texture
         const scene = this.bufferTexture.getScene();
@@ -205,29 +221,4 @@ export class UVSpacePainter {
         }
     }
 
-
-    public clear(): void {
-        const scene = this.paintTexture.getScene();
-        if (!scene) return;
-
-        const engine = scene.getEngine();
-        
-        // Clear both textures
-        const clearRTT = (rtt: RenderTargetTexture) => {
-            engine.bindFramebuffer(rtt.renderTarget!);
-            engine.clear(new Color4(0, 0, 0, 0), true, true, true);
-            engine.unBindFramebuffer(rtt.renderTarget!);
-        };
-
-        clearRTT(this.bufferTexture);
-        clearRTT(this.paintTexture);
-    }
-
-    
-    public dispose(): void {
-        this.bufferTexture.dispose();
-        this.paintTexture.dispose();
-        this.uvSpaceMaterial.dispose();
-        this.dilationPostProcess.dispose();
-    }
 }

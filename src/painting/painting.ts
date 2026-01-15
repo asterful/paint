@@ -17,6 +17,7 @@ export class Painter {
             if (material instanceof PBRMaterial) {
                 const plugin = new PaintMaterialPlugin(material);
                 this.materialPlugins.set(material.name, plugin);
+                (material as any).paintPlugin = plugin; // Attach for easy access
                 console.log(`Applied paint plugin to: ${material.name}`);
             }
         });

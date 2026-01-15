@@ -59,7 +59,7 @@
                     scene,
                     { 
                         generateMipMaps: false, 
-                        generateDepthBuffer: false, 
+                        generateDepthBuffer: true, 
                         type: BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE 
                     }
                 );
@@ -71,7 +71,7 @@
                     scene,
                     { 
                         generateMipMaps: false, 
-                        generateDepthBuffer: false, 
+                        generateDepthBuffer: true, 
                         type: BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE 
                     }
                 );
@@ -85,9 +85,14 @@
                 engine.onEndFrameObservable.addOnce(() => {
                     const clearRTT = (rtt) => {
                         if (!rtt.renderTarget) return; 
-                        engine.bindFramebuffer(rtt.renderTarget);
-                        engine.clear(new BABYLON.Color4(0, 0, 0, 0), true, true, true);
-                        engine.unBindFramebuffer(rtt.renderTarget);
+                        try {
+                            engine.bindFramebuffer(rtt.renderTarget);
+                            // Clear only color if depth/stencil not present to avoid Chrome errors
+                            engine.clear(new BABYLON.Color4(0, 0, 0, 0), true, true, true);
+                            engine.unBindFramebuffer(rtt.renderTarget);
+                        } catch (e) {
+                            console.error("Clear RTT failed:", e);
+                        }
                     }
                     clearRTT(this.bufferTexture);
                     clearRTT(this.paintTexture);
@@ -219,12 +224,17 @@
             }
 
             paintAt(hitPoint, mesh, radius) {
+                console.log(`[UVSpacePainter] paintAt called for ${mesh.name} at ${hitPoint}`);
+                
+                if (!this.uvSpaceMaterial.isReady(mesh)) {
+                    console.warn("[UVSpacePainter] Material not ready for mesh " + mesh.name);
+                }
+
                 this.uvSpaceMaterial.setVector3("paintSphereCenter", hitPoint);
                 this.uvSpaceMaterial.setFloat("paintSphereRadius", radius);
                 this.uvSpaceMaterial.setMatrix("world", mesh.getWorldMatrix());
 
                 // FIX: Use setMaterialForRendering instead of swapping mesh.material
-                // This prevents state corruption on imported meshes with specific caches
                 this.bufferTexture.renderList = [mesh];
                 this.bufferTexture.setMaterialForRendering(mesh, this.uvSpaceMaterial);
                 
@@ -232,6 +242,8 @@
                 
                 // Cleanup the override after render
                 this.bufferTexture.setMaterialForRendering(mesh, undefined); 
+
+                console.log("[UVSpacePainter] Render command issued");
 
                 // 2. Perform UV dilation from buffer to the final texture
                 const scene = this.bufferTexture.getScene();
@@ -265,8 +277,20 @@
             // But getCustomCode handles the defines/varyings mostly.
             
             getAttributes(attributes) {
-                // Ensure UV2 is treated if we need it, though PBRMaterial usually handles it 
-                // if it's in the defines.
+                attributes.push("uv2");
+            }
+
+            prepareDefines(defines, scene, mesh) {
+                // CRITICAL: Force UV2 to be defined so the shader knows we have coordinates
+                if (mesh && mesh.isVerticesDataPresent(BABYLON.VertexBuffer.UV2Kind)) {
+                    defines["UV2"] = true;
+                } else {
+                     // Log warning only once per mesh to avoid spam
+                    if (mesh && !mesh._paintWarningShown) {
+                        console.warn("MaterialPlugin: Mesh " + mesh.name + " has no UV2 data!");
+                        mesh._paintWarningShown = true;
+                    }
+                }
             }
 
             getSamplers(samplers) {

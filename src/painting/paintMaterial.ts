@@ -5,6 +5,7 @@ import {
     Color3,
     Vector3,
     AbstractMesh,
+    VertexBuffer,
 } from '@babylonjs/core';
 import { UVSpacePainter } from './uvSpacePainter';
 
@@ -72,6 +73,14 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         return null;
     }
 
+    // Note: Depending on Babylon version this is sometimes called "prepareDefines"
+    // Base signature: prepareDefines(defines: MaterialDefines, scene: Scene, mesh: AbstractMesh)
+    prepareDefines(defines: any, _scene: any, mesh: AbstractMesh) {
+        if (mesh && mesh.isVerticesDataPresent(VertexBuffer.UV2Kind)) {
+            defines["UV2"] = true;
+        }
+    }
+
 
     bindForSubMesh(uniformBuffer: UniformBuffer): void {
         uniformBuffer.updateColor3("paintColor", this.paintColor);
@@ -94,8 +103,7 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         };
     }
 
-    
-    dispose(): void {
-        this.uvPainter.dispose();
+    getAttributes(attributes: string[]): void {
+        attributes.push("uv2");
     }
 }
