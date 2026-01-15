@@ -58,16 +58,48 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                         uniform sampler2D paintTextureSampler;
                     #endif
                 `,
-                "CUSTOM_FRAGMENT_MAIN_END": `
+                "CUSTOM_FRAGMENT_UPDATE_ALBEDO": `
                     #ifdef UV2
                         // Sample the paint texture - red channel contains intensity (0-1)
                         vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
                         float paintIntensity = paintData.r;
                         
-                        // Blend paint color with the base material using paint intensity
-                        gl_FragColor.rgb = mix(gl_FragColor.rgb, paintColor, paintIntensity);
+                        if (paintIntensity > 0.01) {
+                            // Calculate edge detection using texture derivatives
+                            // This gives us the gradient - where paint intensity changes rapidly
+                            float dx = dFdx(paintIntensity);
+                            float dy = dFdy(paintIntensity);
+                            float edgeGradient = sqrt(dx * dx + dy * dy);
+                            
+                            // Normalize and invert - high values at edges
+                            float edgeFactor = smoothstep(0.0, 0.15, edgeGradient);
+                            
+                            // Create rim highlight - brighten the edges
+                            float rimHighlight = edgeFactor * 0.8;
+                            
+                            // Make center darker/richer, edges brighter (like thick paint)
+                            vec3 paintWithVolume = paintColor * (1.0 + rimHighlight);
+                            
+                            // Add subtle darkening in the center for depth
+                            float centerDarken = (1.0 - edgeFactor) * paintIntensity * 0.2;
+                            paintWithVolume = mix(paintWithVolume, paintColor * 0.7, centerDarken);
+                            
+                            // Apply paint
+                            surfaceAlbedo.rgb = mix(surfaceAlbedo.rgb, paintWithVolume, paintIntensity);
+                        }
                     #endif
-                `
+                `,
+                "CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS": `
+                    #ifdef UV2
+                        vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
+                        float paintIntensity = paintData.r;
+                        
+                        // Make painted areas completely non-metallic and very rough (matte)
+                        // This removes all specular/fresnel reflections
+                        metallicRoughness.r = mix(metallicRoughness.r, 0.0, paintIntensity); // Metallic to 0
+                        metallicRoughness.g = mix(metallicRoughness.g, 1.0, paintIntensity); // Roughness to 1
+                    #endif
+                `,
             };
         }
         return null;
