@@ -15,7 +15,7 @@ export class ThirdPersonCamera {
     private scene: Scene;
     private yaw: number = 0;
     private pitch: number = 0.5;
-    private baseDistance: number = 8;
+    private baseDistance: number = 5;
     private distance: number = 8;
     private currentDistance: number = 8;
     private mouseSensitivity: number = 0.0018;
@@ -23,9 +23,9 @@ export class ThirdPersonCamera {
     private targetYaw: number = 0;
     private targetPitch: number = 0.5;
     private smoothedPlayerPos: Vector3 = Vector3.Zero();
-    private followSmoothness: number = 0.15;
-    private shoulderOffset: number = 1.9;
-    private heightOffset: number = 0.3;
+    private followSmoothness: number = 0.4;
+    private shoulderOffset: number = 2.2;
+    private heightOffset: number = 0.8;
 
     constructor(scene: Scene, player: PhysicsPlayer | KinematicsPlayer, canvas: HTMLCanvasElement) {
         this.scene = scene;

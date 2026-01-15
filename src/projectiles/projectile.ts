@@ -39,7 +39,7 @@ export class Projectile {
         this.mesh.isPickable = false; // Don't let raycasts hit the projectile itself
         
         const material = new StandardMaterial("projectileMat", scene);
-        material.emissiveColor = new Color3(1, 0.2, 0); // Paint color
+        material.emissiveColor = new Color3(0, 0.2, 0.8); // Paint color
         material.disableLighting = true;
         this.mesh.material = material;
 

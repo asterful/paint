@@ -120,7 +120,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
     // Shooting state
     let isMouseDown = false;
     let lastFireTime = 0;
-    const fireRate = 150; // milliseconds between shots
+    const fireRate = 100; // milliseconds between shots
     
     // Click handling for shooting
     scene.onPointerObservable.add((pointerInfo) => {
@@ -165,7 +165,7 @@ export async function createScene(engine: Engine): Promise<Scene> {
                 const spawnPos = playerPos.add(direction.scale(0.5));
 
                 // Fire projectile
-                new Projectile(scene, spawnPos, direction, 80, painter);
+                new Projectile(scene, spawnPos, direction, 50, painter);
             }
         }
 
