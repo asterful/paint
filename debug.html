@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Babylon.js Paint: Sphere Only (Mouse)</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: monospace;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            pointer-events: none;
+            user-select: none;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="instructions">
+        SPHERE PAINTER<br/>
+        -------------------------<br/>
+        1. [CLICK] to Paint on the Sphere<br/>
+        <br/>
+        Debug View (Bottom Left):<br/>
+        - Shows the generated UV texture<br/>
+        <br/>
+        Status: <span id="status">Waiting for input...</span>
+    </div>
+
+    <script>
+        // --- UV PAINTER CLASS ---
+        class UVSpacePainter {
+            constructor(scene, textureName, textureSize = 512) {
+                this.scene = scene;
+                
+                // 1. Create the buffer texture (where paint accumulates)
+                this.bufferTexture = new BABYLON.RenderTargetTexture(
+                    textureName + "_buffer",
+                    { width: textureSize, height: textureSize },
+                    scene,
+                    { 
+                        generateMipMaps: false, 
+                        generateDepthBuffer: false, 
+                        type: BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE 
+                    }
+                );
+
+                // 2. Create the output texture (dilated result used by material)
+                this.paintTexture = new BABYLON.RenderTargetTexture(
+                    textureName,
+                    { width: textureSize, height: textureSize },
+                    scene,
+                    { 
+                        generateMipMaps: false, 
+                        generateDepthBuffer: false, 
+                        type: BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE 
+                    }
+                );
+
+                this.bufferTexture.onClearObservable.add(() => {});
+                this.paintTexture.onClearObservable.add(() => {});
+
+                // Initial clear - matches uvSpacePainter.ts exactly
+                // We use onEndFrameObservable to ensure the engine is ready and RTTs are initialized
+                const engine = scene.getEngine();
+                engine.onEndFrameObservable.addOnce(() => {
+                    const clearRTT = (rtt) => {
+                        if (!rtt.renderTarget) return; 
+                        engine.bindFramebuffer(rtt.renderTarget);
+                        engine.clear(new BABYLON.Color4(0, 0, 0, 0), true, true, true);
+                        engine.unBindFramebuffer(rtt.renderTarget);
+                    }
+                    clearRTT(this.bufferTexture);
+                    clearRTT(this.paintTexture);
+                });
+
+                this.setupShaders();
+                this.uvSpaceMaterial = this.createUVSpaceMaterial(scene);
+                this.dilationPostProcess = this.createDilationPostProcess(scene, textureSize);
+            }
+
+            setupShaders() {
+                // --- VERTEX SHADER (World Space) ---
+                BABYLON.Effect.ShadersStore["uvSpacePaintVertexShader"] = `
+                    precision highp float;
+                    
+                    // Attributes
+                    attribute vec3 position;
+                    attribute vec2 uv2;
+                    
+                    // Uniforms
+                    uniform mat4 world;
+                    
+                    // Varyings
+                    varying vec3 vWorldPosition;
+                    
+                    void main() {
+                        // Pass world position to fragment shader for distance calculation
+                        vWorldPosition = (world * vec4(position, 1.0)).xyz;
+                        
+                        // Use UV2 as clip space position (maps mesh into texture space)
+                        gl_Position = vec4(uv2 * 2.0 - 1.0, 0.0, 1.0);
+                    }
+                `;
+
+                // --- FRAGMENT SHADER (World Space) ---
+                BABYLON.Effect.ShadersStore["uvSpacePaintFragmentShader"] = `
+                    precision highp float;
+                    varying vec3 vWorldPosition;
+                    
+                    uniform vec3 paintSphereCenter;
+                    uniform float paintSphereRadius;
+                    
+                    void main() {
+                        float dist = distance(vWorldPosition, paintSphereCenter);
+                        
+                        if (dist < paintSphereRadius) {
+                            // Create a "solid core" look instead of a whispy spray
+                            float edgeSoftness = 0.2; 
+                            float softStart = paintSphereRadius * (1.0 - edgeSoftness);
+                            
+                            float falloff = 1.0 - smoothstep(softStart, paintSphereRadius, dist);
+                            
+                            gl_FragColor = vec4(falloff, 0.0, 0.0, 1.0);
+                        } else {
+                            discard;
+                        }
+                    }
+                `;
+
+                // --- DILATION SHADER ---
+                BABYLON.Effect.ShadersStore["dilationFragmentShader"] = `
+                    precision highp float;
+                    varying vec2 vUV;
+                    uniform sampler2D textureSampler;
+                    uniform vec2 texelSize;
+
+                    void main(void) {
+                        vec4 baseColor = texture2D(textureSampler, vUV);
+
+                        // If this pixel has paint, keep it
+                        if (baseColor.r > 0.0) {
+                            gl_FragColor = baseColor;
+                        } else {
+                            // Otherwise check neighbors (3x3 kernel) to expand paint
+                            float maxFill = 0.0;
+                            
+                            // Simple infinite expansion to fill gaps
+                            for(float x = -1.0; x <= 1.0; x++) {
+                                for(float y = -1.0; y <= 1.0; y++) {
+                                    vec4 neighbor = texture2D(textureSampler, vUV + vec2(x, y) * texelSize);
+                                    maxFill = max(maxFill, neighbor.r);
+                                }
+                            }
+                            
+                            gl_FragColor = vec4(maxFill, 0.0, 0.0, 1.0);
+                        }
+                    }
+                `;
+            }
+
+            createDilationPostProcess(scene, textureSize) {
+                const pp = new BABYLON.PostProcess(
+                    "dilation",
+                    "dilation",
+                    ["texelSize"],
+                    ["textureSampler"],
+                    1.0,
+                    null,
+                    BABYLON.Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+                    scene.getEngine(),
+                    false,
+                    null,
+                    BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE
+                );
+                
+                pp.onApply = (effect) => {
+                    effect.setFloat2("texelSize", 1.0 / textureSize, 1.0 / textureSize);
+                    effect.setTexture("textureSampler", this.bufferTexture);
+                };
+                
+                return pp;
+            }
+
+            createUVSpaceMaterial(scene) {
+                const material = new BABYLON.ShaderMaterial("uvSpacePaint", scene, "uvSpacePaint", {
+                    attributes: ["position", "uv2"], 
+                    uniforms: ["world", "paintSphereCenter", "paintSphereRadius", "paintColor"] 
+                });
+
+                material.backFaceCulling = false;
+                material.alphaMode = BABYLON.Engine.ALPHA_ADD;
+                material.disableDepthWrite = true; 
+                material.needDepthPrePass = false;
+                
+                // Force alpha blending to be enabled
+                material.needAlphaBlending = () => true;
+
+                return material;
+            }
+
+            paintAt(hitPoint, mesh, radius) {
+                this.uvSpaceMaterial.setVector3("paintSphereCenter", hitPoint);
+                this.uvSpaceMaterial.setFloat("paintSphereRadius", radius);
+                this.uvSpaceMaterial.setMatrix("world", mesh.getWorldMatrix());
+
+                // FIX: Use setMaterialForRendering instead of swapping mesh.material
+                // This prevents state corruption on imported meshes with specific caches
+                this.bufferTexture.renderList = [mesh];
+                this.bufferTexture.setMaterialForRendering(mesh, this.uvSpaceMaterial);
+                
+                this.bufferTexture.render();
+                
+                // Cleanup the override after render
+                this.bufferTexture.setMaterialForRendering(mesh, undefined); 
+
+                // 2. Perform UV dilation from buffer to the final texture
+                const scene = this.bufferTexture.getScene();
+                if (scene) {
+                    scene.postProcessManager.directRender(
+                        [this.dilationPostProcess],
+                        this.paintTexture.renderTarget,
+                        true
+                    );
+                }
+            }
+        }
+
+        // --- MATERIAL PLUGIN ---
+        class PaintMaterialPlugin extends BABYLON.MaterialPluginBase {
+            constructor(material) {
+                super(material, "PaintPlugin", 200, {});
+                this.paintColor = new BABYLON.Color3(0.0, 0.2, 0.8);
+                const scene = material.getScene();
+                this.uvPainter = new UVSpacePainter(scene, "paintTexture_" + material.name, 512);
+                this._enable(true);
+            }
+
+            getClassName() { return "PaintMaterialPlugin"; }
+
+            paintAt(hitPoint, mesh, radius = 0.5) {
+                this.uvPainter.paintAt(hitPoint, mesh, radius);
+            }
+
+            // Note: MaterialPluginBase handles attributes via getAttributes if needed
+            // But getCustomCode handles the defines/varyings mostly.
+            
+            getAttributes(attributes) {
+                // Ensure UV2 is treated if we need it, though PBRMaterial usually handles it 
+                // if it's in the defines.
+            }
+
+            getSamplers(samplers) {
+                samplers.push("paintTextureSampler");
+            }
+
+            getUniforms() {
+                return {
+                    ubo: [
+                        { name: "paintColor", size: 3, type: "vec3" }
+                    ]
+                };
+            }
+
+            bindForSubMesh(uniformBuffer) {
+                uniformBuffer.updateColor3("paintColor", this.paintColor);
+                uniformBuffer.setTexture('paintTextureSampler', this.uvPainter.paintTexture);
+            }
+
+            getCustomCode(shaderType) {
+                if (shaderType === "vertex") {
+                    return {
+                        "CUSTOM_VERTEX_DEFINITIONS": `
+                            #ifdef UV2
+                                varying vec2 vPaintUV;
+                            #endif
+                        `,
+                        "CUSTOM_VERTEX_MAIN_END": `
+                            #ifdef UV2
+                                vPaintUV = uv2;
+                            #endif
+                        `
+                    };
+                }
+
+                if (shaderType === "fragment") {
+                    return {
+                        "CUSTOM_FRAGMENT_DEFINITIONS": `
+                            #ifdef UV2
+                                varying vec2 vPaintUV;
+                                uniform sampler2D paintTextureSampler;
+                            #endif
+                        `,
+                        "CUSTOM_FRAGMENT_MAIN_END": `
+                            #ifdef UV2
+                                // Sample the paint texture - red channel contains intensity (0-1)
+                                vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
+                                float paintIntensity = paintData.r;
+                                
+                                // Blend paint color with the base material using paint intensity
+                                gl_FragColor.rgb = mix(gl_FragColor.rgb, paintColor, paintIntensity);
+                            #endif
+                        `
+                    };
+                }
+                return null;
+            }
+        }
+
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = async function () {
+            const scene = new BABYLON.Scene(engine);
+            
+            // Camera
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.minZ = 0.1;
+
+            // --- SCENE ENVIRONMENT (Match src/scene.ts) ---
+            scene.clearColor = new BABYLON.Color3(0.5, 0.7, 1);
+            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            scene.fogColor = scene.clearColor;
+            scene.fogStart = 50.0;
+            scene.fogEnd = 150.0;
+
+            scene.createDefaultEnvironment({
+                createGround: false,
+                createSkybox: false
+            });
+            scene.environmentIntensity = 0.3;
+
+            // Lighting
+            const hemiLight = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(0, 1, 0), scene);
+            hemiLight.intensity = 0.3;
+            const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            dirLight.intensity = 2.5;
+
+            // --- LOAD MESHES (Mirroring src/scene.ts) ---
+            await BABYLON.SceneLoader.AppendAsync("/", "city.glb", scene);
+
+            console.log("--- MESH DIAGNOSTICS ---");
+            // --- PROCESS MESHES & DIAGNOSE ---
+            scene.meshes.forEach(mesh => {
+                const hasUV = mesh.isVerticesDataPresent(BABYLON.VertexBuffer.UVKind);
+                const hasUV2 = mesh.isVerticesDataPresent(BABYLON.VertexBuffer.UV2Kind);
+                
+                console.log(`Mesh: ${mesh.name}, Vertices: ${mesh.getTotalVertices()}, UV1: ${hasUV}, UV2: ${hasUV2}`);
+
+                if (mesh.name === 'skyBox') return;
+                
+                if (mesh.getTotalVertices() === 0) {
+                    mesh.isPickable = true;
+                    return;
+                }
+                
+                mesh.checkCollisions = true;
+                mesh.isPickable = true;
+                mesh.refreshBoundingInfo(false, false);
+            });
+            console.log("------------------------");
+
+            // --- PAINT SETUP (Mirroring src/painting/painting.ts) ---
+            scene.materials.forEach(material => {
+                if (material instanceof BABYLON.PBRMaterial) {
+                    // Check if material is valid for painting
+                    console.log(`Found PBRMaterial: ${material.name}. Attaching Plugin...`);
+                    const plugin = new PaintMaterialPlugin(material);
+                    material.paintPlugin = plugin; 
+                } else {
+                     console.log(`Skipping Material: ${material.name} (Type: ${material.getClassName()})`);
+                }
+            });
+
+            // --- ANISOTROPIC FILTERING (Match src/scene.ts) ---
+            // Ensure this runs safely even if textures aren't ready
+            scene.materials.forEach(material => {
+                if (material.getActiveTextures) {
+                    const textures = material.getActiveTextures();
+                    textures.forEach(texture => {
+                       // Protect against potential internal nulls in some edge cases
+                       if(texture) texture.anisotropicFilteringLevel = 16;
+                    });
+                }
+            });
+
+            // --- DEBUG UI Setup (deferred until we have materials) ---
+            let debugPlugin = null;
+            scene.materials.forEach(m => {
+                if(m.paintPlugin && !debugPlugin) debugPlugin = m.paintPlugin;
+            });
+
+            // Center camera on the city if possible
+            camera.position = new BABYLON.Vector3(0, 10, -20);
+            camera.setTarget(BABYLON.Vector3.Zero());
+
+
+            // --- DEBUG UI (Bottom Left) ---
+            const uiPlane = BABYLON.MeshBuilder.CreatePlane("uiPlane", {size: 1}, scene);
+            uiPlane.parent = camera;
+            
+            const uiMat = new BABYLON.StandardMaterial("uiMat", scene);
+            // Default to black if no plugin found yet
+            if (debugPlugin) {
+                 uiMat.emissiveTexture = debugPlugin.uvPainter.paintTexture; 
+            }
+            uiMat.disableLighting = true; 
+            uiPlane.material = uiMat;
+            uiPlane.renderingGroupId = 1; 
+
+            // Function to update UI position based on window size/FOV
+            const updateUIPosition = () => {
+                const distance = 2; // Distance from camera
+                const verticalFOV = camera.fov;
+                const visibleHeight = 2 * Math.tan(verticalFOV / 2) * distance;
+                const aspectRatio = engine.getAspectRatio(camera);
+                const visibleWidth = visibleHeight * aspectRatio;
+
+                // Position bottom left
+                const margin = 0.2; 
+                const uiSize = 0.5; 
+
+                uiPlane.scaling.setAll(uiSize);
+                
+                uiPlane.position.z = distance;
+                uiPlane.position.x = - (visibleWidth / 2) + (uiSize / 2) + (margin / 2);
+                uiPlane.position.y = - (visibleHeight / 2) + (uiSize / 2) + (margin / 2);
+            };
+
+            scene.executeWhenReady(updateUIPosition);
+            engine.onResizeObservable.add(updateUIPosition);
+
+            // --- INPUTS (Raycast Paint) ---
+            scene.onPointerDown = (evt, pickInfo) => {
+                if (pickInfo.hit && pickInfo.pickedMesh) {
+                    const mesh = pickInfo.pickedMesh;
+                    const material = mesh.material;
+                    
+                    if (material && material.paintPlugin) {
+                        console.log(`Attempting paint on: ${mesh.name}`);
+                        
+                        // Validations for Chrome debugging
+                        if (!mesh.isVerticesDataPresent(BABYLON.VertexBuffer.UV2Kind)) {
+                            console.error(`ERROR: Mesh ${mesh.name} missing UV2s! Paint will likely fail on Chrome.`);
+                            document.getElementById("status").style.color = "red";
+                            document.getElementById("status").innerText = "ERROR: Missing UV2s on " + mesh.name;
+                            return;
+                        }
+
+                        material.paintPlugin.paintAt(pickInfo.pickedPoint, mesh, 1.0); 
+                        
+                        uiMat.emissiveTexture = material.paintPlugin.uvPainter.paintTexture;
+                        document.getElementById("status").style.color = "white";
+                        document.getElementById("status").innerText = "Painted on: " + mesh.name;
+                    } else {
+                        console.log(`Hit mesh ${mesh.name} but no paint plugin found (Mat: ${material ? material.name : 'None'}).`);
+                        document.getElementById("status").style.color = "yellow";
+                        document.getElementById("status").innerText = "Hit " + mesh.name + " (No Paint Plugin)";
+                    }
+                }
+            };
+
+            return scene;
+        };
+
+        // Handle the async createScene
+        var scene;
+        createScene().then(s => {
+            scene = s;
+            engine.runRenderLoop(function () {
+                if (scene) scene.render();
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>

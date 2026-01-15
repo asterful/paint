@@ -15,6 +15,7 @@ import {
     Texture,
     KeyboardEventTypes,
     PointerEventTypes,
+    PickingInfo,
 } from '@babylonjs/core';
 import '@babylonjs/loaders';
 import HavokPhysics from '@babylonjs/havok';
@@ -122,20 +123,22 @@ export async function createScene(engine: Engine): Promise<Scene> {
         if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
              // Raycast from camera to find target point 
             const ray = thirdPersonCamera.getAimRay();
+            let pick = scene.pickWithRay(ray);
+            painter.paintAtPickInfo(pick!);
             
-            // Calculate spawn position (Player chest/gun position)
-            const playerPos = player.position.clone();
-            playerPos.y += 0.8; // Chest height
+            // // Calculate spawn position (Player chest/gun position)
+            // const playerPos = player.position.clone();
+            // playerPos.y += 0.8; // Chest height
             
-            // Use the camera's forward direction directly
-            // This prevents shooting backwards if an object is between camera and player
-            const direction = ray.direction;
+            // // Use the camera's forward direction directly
+            // // This prevents shooting backwards if an object is between camera and player
+            // const direction = ray.direction;
             
-            // Move spawn point slightly forward to avoid clipping player
-            const spawnPos = playerPos.add(direction.scale(0.5));
+            // // Move spawn point slightly forward to avoid clipping player
+            // const spawnPos = playerPos.add(direction.scale(0.5));
 
-            // Fire projectile (faster speed for dart gun feel)
-            new Projectile(scene, spawnPos, direction, 80, painter);
+            // // Fire projectile (faster speed for dart gun feel)
+            // new Projectile(scene, spawnPos, direction, 80, painter);
         }
     });
     
