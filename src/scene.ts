@@ -151,21 +151,48 @@ export async function createScene(engine: Engine): Promise<Scene> {
             if (currentTime - lastFireTime >= fireRate) {
                 lastFireTime = currentTime;
                 
-                // Raycast from camera to find target point 
-                const ray = thirdPersonCamera.getAimRay();
+                // 1. Raycast from camera center to find what we're looking at
+                const aimRay = thirdPersonCamera.getAimRay();
                 
-                // Calculate spawn position (Player chest/gun position)
+                const hit = scene.pickWithRay(aimRay, (mesh) => {
+                    // Ignore player and previous projectiles
+                    return mesh.name !== "player" && 
+                           mesh.name !== "projectile" && 
+                           mesh.isPickable && 
+                           mesh.isVisible;
+                });
+
+                let targetPoint: Vector3;
+                if (hit && hit.hit && hit.pickedPoint) {
+                    targetPoint = hit.pickedPoint;
+                } else {
+                    // If sky/nothing, shoot towards infinity along camera dir
+                    targetPoint = aimRay.origin.add(aimRay.direction.scale(1000));
+                }
+                
+                // 2. Calculate direction from player's weapon position
                 const playerPos = player.position.clone();
-                playerPos.y += 0.8; // Chest height
+                playerPos.y += 0.8; // Approximate chest/weapon height
                 
-                // Use the camera's forward direction directly
-                const direction = ray.direction;
+                let direction = targetPoint.subtract(playerPos).normalize();
                 
-                // Move spawn point slightly forward to avoid clipping player
-                const spawnPos = playerPos.add(direction.scale(0.5));
+                // 3. Prevent shooting backwards
+                // If the target is behind the player (e.g. obstruction between camera and player),
+                // the dot product between shoot direction and camera view direction will be negative.
+                const cameraDir = aimRay.direction;
+                if (Vector3.Dot(direction, cameraDir) < 0.2) {
+                    // Fallback: just shoot straight forward relative to camera
+                    direction = cameraDir;
+                }
+                
+                // Move spawn point slightly forward to avoid colliding with player's own collider
+                const spawnPos = playerPos.add(direction.scale(1.0));
+
+                // Random speed for spray effect (some fall short, some go far)
+                const speed = 15 + Math.random() * 45; 
 
                 // Fire projectile
-                new Projectile(scene, spawnPos, direction, 50, painter);
+                new Projectile(scene, spawnPos, direction, speed, painter);
             }
         }
 
