@@ -1,12 +1,16 @@
-import { Scene, PickingInfo, PBRMaterial, AbstractMesh, Vector3 } from "@babylonjs/core";
-import { PaintMaterialPlugin } from "./paintMaterial";
+import { Scene, PickingInfo, PBRMaterial, Vector3 } from "@babylonjs/core";
+import { PaintMaterialPlugin } from "./PaintMaterialPlugin";
 
-export class Painter {
+/**
+ * PaintSystem manages paint operations across all paintable meshes in the scene
+ * Decoupled from projectile logic and other systems
+ */
+export class PaintSystem {
     private scene: Scene;
     private sphereRadius: number;
     private materialPlugins: Map<string, PaintMaterialPlugin> = new Map();
 
-    constructor(scene: Scene, sphereRadius: number) {
+    constructor(scene: Scene, sphereRadius: number = 1.3) {
         this.scene = scene;
         this.sphereRadius = sphereRadius;
         this.setupPaintMaterials();
@@ -23,13 +27,15 @@ export class Painter {
         });
     }
 
+    /**
+     * Paint at a specific world position using PickingInfo
+     */
     public paintAtPickInfo(pickInfo: PickingInfo): void {
         if (!pickInfo.hit || !pickInfo.pickedPoint) {
             return;
         }
 
         const paintCenter = pickInfo.pickedPoint;
-        // Ensure radius is valid (fallback if 0)
         const radius = this.sphereRadius > 0 ? this.sphereRadius : 1.0;
 
         console.log(`Painting at world pos: ${paintCenter} with radius ${radius}`);
@@ -58,5 +64,47 @@ export class Painter {
                 plugin.paintAt(paintCenter, mesh, radius);
             }
         });
+    }
+
+    /**
+     * Paint at a specific world position (without PickingInfo)
+     */
+    public paintAtPosition(position: Vector3, radius?: number): void {
+        const paintRadius = radius ?? this.sphereRadius;
+        
+        this.scene.meshes.forEach(mesh => {
+            if (!mesh.isEnabled() || !mesh.isVisible || !mesh.material || !(mesh.material instanceof PBRMaterial)) {
+                return;
+            }
+
+            const plugin = this.materialPlugins.get(mesh.material.name);
+            if (!plugin) {
+                return;
+            }
+
+            const boundingInfo = mesh.getBoundingInfo();
+            if (!boundingInfo) return;
+            
+            const meshCenter = boundingInfo.boundingSphere.centerWorld;
+            const meshRadius = boundingInfo.boundingSphere.radiusWorld;
+            
+            if (Vector3.Distance(position, meshCenter) < (paintRadius + meshRadius)) {
+                plugin.paintAt(position, mesh, paintRadius);
+            }
+        });
+    }
+
+    /**
+     * Get a specific paint plugin by material name
+     */
+    public getPlugin(materialName: string): PaintMaterialPlugin | undefined {
+        return this.materialPlugins.get(materialName);
+    }
+
+    /**
+     * Get all registered paint plugins
+     */
+    public getAllPlugins(): PaintMaterialPlugin[] {
+        return Array.from(this.materialPlugins.values());
     }
 }

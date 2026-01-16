@@ -6,32 +6,34 @@ import {
     StandardMaterial, 
     Color3, 
     Ray, 
-    PickingInfo,
-    Observer 
+    Observer,
+    PickingInfo
 } from '@babylonjs/core';
-import { Painter } from '../painting/painting';
 
+/**
+ * Individual projectile entity
+ */
 export class Projectile {
     private mesh: Mesh;
     private velocity: Vector3;
     private scene: Scene;
-    private painter: Painter;
     private isDisposed: boolean = false;
     private renderObserver: Observer<Scene> | null = null;
     private gravity: Vector3 = new Vector3(0, -9.81, 0);
     private lifeTime: number = 3.0; // Seconds before auto-destroy
+    private onHitCallback?: (pickInfo: PickingInfo) => void;
 
     constructor(
         scene: Scene, 
         startPosition: Vector3, 
         direction: Vector3, 
-        speed: number, 
-        painter: Painter,
+        speed: number,
+        onHit?: (pickInfo: PickingInfo) => void,
         radius: number = 0.15
     ) {
         this.scene = scene;
-        this.painter = painter;
         this.velocity = direction.normalize().scale(speed);
+        this.onHitCallback = onHit;
 
         // Create projectile mesh
         this.mesh = MeshBuilder.CreateSphere("projectile", { diameter: radius * 2 }, scene);
@@ -69,18 +71,16 @@ export class Projectile {
         
         const hit = this.scene.pickWithRay(ray, (mesh) => {
             return mesh !== this.mesh && mesh.isPickable && mesh.isVisible && mesh.name !== "player"; 
-            // Also excluding player if needed, but mesh.name check is brittle. 
-            // Better to rely on isPickable for now.
         });
 
         if (hit && hit.hit && hit.pickedPoint) {
             // Move to hit point
             this.mesh.position = hit.pickedPoint;
             
-            // Trigger paint
-            this.painter.paintAtPickInfo(hit);
-            
-            // Generate some particles or decal? (skipped for now)
+            // Trigger hit callback
+            if (this.onHitCallback) {
+                this.onHitCallback(hit);
+            }
             
             // Destroy projectile
             this.dispose();

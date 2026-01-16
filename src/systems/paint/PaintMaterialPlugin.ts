@@ -7,11 +7,13 @@ import {
     AbstractMesh,
     VertexBuffer,
 } from '@babylonjs/core';
-import { UVSpacePainter } from './uvSpacePainter';
+import { UVSpacePainter } from './UVSpacePainter';
 
-
+/**
+ * Material plugin that integrates the paint system into PBR materials
+ * Handles shader injection and texture binding
+ */
 export class PaintMaterialPlugin extends MaterialPluginBase {
-
     public paintColor = new Color3(0.0, 0.2, 0.8);
     private uvPainter: UVSpacePainter;
 
@@ -22,17 +24,15 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         this.uvPainter = new UVSpacePainter(
             scene,
             "paintTexture_" + material.name,
-            512
+            4096
         );
         
         this._enable(true);
     }
 
-
     public paintAt(hitPoint: Vector3, mesh: AbstractMesh, radius: number = 0.5): void {
         this.uvPainter.paintAt(hitPoint, mesh, radius);
     }
-
 
     getCustomCode(shaderType: string): { [pointName: string]: string } | null {
         if (shaderType === "vertex") {
@@ -60,59 +60,67 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                 `,
                 "CUSTOM_FRAGMENT_UPDATE_ALBEDO": `
                     #ifdef UV2
-                        // Sample the paint texture - red channel contains intensity (0-1)
                         vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
-                        float paintIntensity = paintData.r;
+                        float rawData = paintData.r;
+
+                        // Pass 3: Visual Layer
+                        // rawData is now a smooth Radial Distance Field from Pass 2.
+                        // 0.0 = Outside 
+                        // 0.5 = The theoretical "Edge"
+                        // 1.0 = Inside 
+                        
+                        // 1. Opacity / Visibility
+                        // We use a smoothstep centered on 0.5 to define the sharp paint edge.
+                        float paintIntensity = smoothstep(0.4, 0.6, rawData);
                         
                         if (paintIntensity > 0.01) {
-                            // Calculate edge detection using texture derivatives
-                            // This gives us the gradient - where paint intensity changes rapidly
-                            float dx = dFdx(paintIntensity);
-                            float dy = dFdy(paintIntensity);
-                            float edgeGradient = sqrt(dx * dx + dy * dy);
+                            // 2. Bevel / Highlight using Value-Based approach (Stable across seams)
+                            // We avoid dFdx/dFdy because they break at UV discontinuities (seams).
                             
-                            // Normalize and invert - high values at edges
-                            float edgeFactor = smoothstep(0.0, 0.15, edgeGradient);
+                            // Calculate how close we are to the "edge" (0.5).
+                            float distFromEdge = abs(rawData - 0.5);
                             
-                            // Create rim highlight - brighten the edges
-                            float rimHighlight = edgeFactor * 0.8;
+                            // Create a highlight band around the edge
+                            // 0.5 +/- 0.1 => Highlight
+                            float edgeBevel = 1.0 - smoothstep(0.0, 0.1, distFromEdge);
+
+                            vec3 finalVisuals = paintColor;
+                            finalVisuals += vec3(edgeBevel * 0.5); // Stronger Highlight
                             
-                            // Make center darker/richer, edges brighter (like thick paint)
-                            vec3 paintWithVolume = paintColor * (1.0 + rimHighlight);
-                            
-                            // Add subtle darkening in the center for depth
-                            float centerDarken = (1.0 - edgeFactor) * paintIntensity * 0.2;
-                            paintWithVolume = mix(paintWithVolume, paintColor * 0.7, centerDarken);
-                            
-                            // Apply paint
-                            surfaceAlbedo.rgb = mix(surfaceAlbedo.rgb, paintWithVolume, paintIntensity);
+                            // Clean mix
+                            surfaceAlbedo.rgb = mix(surfaceAlbedo.rgb, finalVisuals, paintIntensity);
                         }
                     #endif
                 `,
                 "CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS": `
                     #ifdef UV2
-                        vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
-                        float paintIntensity = paintData.r;
+                        vec4 paintDataMR = texture2D(paintTextureSampler, vPaintUV);
+                        float rawDataMR = paintDataMR.r;
                         
-                        // Make painted areas completely non-metallic and very rough (matte)
-                        // This removes all specular/fresnel reflections
-                        metallicRoughness.r = mix(metallicRoughness.r, 0.0, paintIntensity); // Metallic to 0
-                        metallicRoughness.g = mix(metallicRoughness.g, 1.0, paintIntensity); // Roughness to 1
+                        // FIX: Grazing Angle Seams
+                        // When viewing from an angle, mipmaps can bleed unpainted properties (shiny/specular) 
+                        // into the painted edge area. 
+                        // We fix this by making the Roughness/Metallic mask slightly WIDER than the visual Albedo mask.
+                        // The paint becomes matte/non-metallic slightly BEFORE it becomes visible color-wise.
+                        
+                        // Mask starts at 0.05 (visibility) but reaches full matte strength at 0.25 (well before 0.6 core)
+                        float roughnessMask = smoothstep(0.05, 0.25, rawDataMR);
+                        
+                        // Roughness/Metal
+                        metallicRoughness.r = mix(metallicRoughness.r, 0.0, roughnessMask); 
+                        metallicRoughness.g = mix(metallicRoughness.g, 1.0, roughnessMask); 
                     #endif
-                `,
+                `
             };
         }
         return null;
     }
 
-    // Note: Depending on Babylon version this is sometimes called "prepareDefines"
-    // Base signature: prepareDefines(defines: MaterialDefines, scene: Scene, mesh: AbstractMesh)
     prepareDefines(defines: any, _scene: any, mesh: AbstractMesh) {
         if (mesh && mesh.isVerticesDataPresent(VertexBuffer.UV2Kind)) {
             defines["UV2"] = true;
         }
     }
-
 
     bindForSubMesh(uniformBuffer: UniformBuffer): void {
         uniformBuffer.updateColor3("paintColor", this.paintColor);
@@ -137,5 +145,9 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
 
     getAttributes(attributes: string[]): void {
         attributes.push("uv2");
+    }
+
+    public getPaintTexture() {
+        return this.uvPainter.paintTexture;
     }
 }

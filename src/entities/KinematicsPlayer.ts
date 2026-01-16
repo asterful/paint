@@ -6,7 +6,7 @@ import {
     Vector3,
     Mesh
 } from '@babylonjs/core';
-import { CharacterController } from './CharacterController';
+import { CharacterController } from '../systems/character/CharacterController';
 
 export class KinematicsPlayer {
     public mesh: Mesh;

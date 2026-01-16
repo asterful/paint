@@ -6,8 +6,8 @@ import {
     AbstractMesh,
     PointerEventTypes
 } from '@babylonjs/core';
-import { PhysicsPlayer } from './players/PhysicsPlayer';
-import { KinematicsPlayer } from './players/KinematicsPlayer';
+import { PhysicsPlayer } from '../../entities/PhysicsPlayer';
+import { KinematicsPlayer } from '../../entities/KinematicsPlayer';
 
 export class ThirdPersonCamera {
     private camera: UniversalCamera;
