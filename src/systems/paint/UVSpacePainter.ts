@@ -28,10 +28,7 @@ export class UVSpacePainter {
     private upscalePostProcess: PostProcess;
     private seamFixPostProcess: PostProcess;
 
-    constructor(scene: Scene, textureName: string, targetSize: number = 2048) {
-        // Pass 1: Source State Texture (The "Source of Truth")
-        // Low-resolution, optimized for memory and network
-        const sourceSize = 512; 
+    constructor(scene: Scene, textureName: string, targetSize: number = 2048, sourceSize: number = 512) {
         
         this.sourceTexture = new RenderTargetTexture(
             textureName + "_source",
