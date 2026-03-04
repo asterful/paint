@@ -24,7 +24,6 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
         this.uvPainter = new UVSpacePainter(
             scene,
             "paintTexture_" + material.name,
-            4096,
             1024
         );
         
