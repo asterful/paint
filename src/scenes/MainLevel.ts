@@ -12,7 +12,7 @@ import {
     CubeTexture,
     MeshBuilder,
     StandardMaterial,
-    Texture,
+    Texture
 } from '@babylonjs/core';
 import '@babylonjs/loaders';
 import HavokPhysics from '@babylonjs/havok';
@@ -22,6 +22,7 @@ import { ThirdPersonCamera } from '../systems/camera/ThirdPersonCamera';
 import { PaintSystem } from '../systems/paint/PaintSystem';
 import { ProjectileSystem } from '../systems/projectiles/ProjectileSystem';
 import { InputSystem } from '../systems/input/InputSystem';
+import { PerformanceTracker } from '../systems/debug/PerformanceTracker';
 
 /**
  * MainLevel scene - the primary gameplay scene
@@ -35,6 +36,7 @@ export class MainLevel {
     private paintSystem!: PaintSystem;
     private projectileSystem!: ProjectileSystem;
     private inputSystem!: InputSystem;
+    private performanceTracker!: PerformanceTracker;
 
     // Shooting state
     private lastFireTime: number = 0;
@@ -53,6 +55,7 @@ export class MainLevel {
         this.setupPlayer();
         this.setupCamera();
         this.setupSystems();
+        this.setupPerformanceTracking();
         this.setupGameLoop();
         this.setupUI();
 
@@ -167,6 +170,11 @@ export class MainLevel {
         this.projectileSystem.setHitCallback((pickInfo) => {
             this.paintSystem.paintAtPickInfo(pickInfo);
         });
+    }
+
+    private setupPerformanceTracking(): void {
+        this.performanceTracker = new PerformanceTracker(this.engine, this.scene);
+        (window as any).performanceTracker = this.performanceTracker;
     }
 
     private setupGameLoop(): void {
