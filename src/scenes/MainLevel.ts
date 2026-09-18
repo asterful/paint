@@ -12,7 +12,9 @@ import {
     CubeTexture,
     MeshBuilder,
     StandardMaterial,
-    Texture
+    Texture,
+    Mesh,
+    VertexBuffer
 } from '@babylonjs/core';
 import '@babylonjs/loaders';
 import HavokPhysics from '@babylonjs/havok';
@@ -110,7 +112,7 @@ export class MainLevel {
     }
 
     private async loadWorld(): Promise<void> {
-        await ImportMeshAsync("./city.glb", this.scene);
+        await ImportMeshAsync("./final_city.glb", this.scene);
 
         // Enable anisotropic filtering for all textures
         this.scene.materials.forEach(material => {
@@ -131,6 +133,14 @@ export class MainLevel {
                 return;
             }
 
+            // Add centroid attribute
+            if (mesh instanceof Mesh) {
+                if (mesh.isVerticesDataPresent(VertexBuffer.UV2Kind)) {
+                    mesh.convertToFlatShadedMesh();
+                    this.applyUV2Centroids(mesh);
+                }
+            }
+
             new PhysicsAggregate(
                 mesh,
                 PhysicsShapeType.MESH,
@@ -142,6 +152,46 @@ export class MainLevel {
             mesh.layerMask = 0x0FFFFFFF;
             mesh.refreshBoundingInfo(false, false);
         });
+    }
+
+    /**
+     * Calculates the center of each face in UV2 space and saves it 
+     * as a custom vertex attribute for the shader.
+     */
+    private applyUV2Centroids(mesh: Mesh): void {
+        const indices = mesh.getIndices();
+        const uv2 = mesh.getVerticesData(VertexBuffer.UV2Kind);
+
+        if (!indices || !uv2) {
+            return;
+        }
+
+        const vertexCount = mesh.getTotalVertices();
+        const uvCentroids = new Float32Array(vertexCount * 2);
+
+        for (let i = 0; i < indices.length; i += 3) {
+            const i0 = indices[i];
+            const i1 = indices[i + 1];
+            const i2 = indices[i + 2];
+
+            const u0 = uv2[i0 * 2],     v0 = uv2[i0 * 2 + 1];
+            const u1 = uv2[i1 * 2],     v1 = uv2[i1 * 2 + 1];
+            const u2 = uv2[i2 * 2],     v2 = uv2[i2 * 2 + 1];
+
+            const centroidU = (u0 + u1 + u2) / 3.0;
+            const centroidV = (v0 + v1 + v2) / 3.0;
+
+            uvCentroids[i0 * 2] = centroidU;
+            uvCentroids[i0 * 2 + 1] = centroidV;
+            
+            uvCentroids[i1 * 2] = centroidU;
+            uvCentroids[i1 * 2 + 1] = centroidV;
+            
+            uvCentroids[i2 * 2] = centroidU;
+            uvCentroids[i2 * 2 + 1] = centroidV;
+        }
+
+        mesh.setVerticesData("uvCentroid", uvCentroids, false, 2);
     }
 
     private setupPlayer(): void {

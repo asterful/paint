@@ -56,59 +56,51 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
                     #ifdef UV2
                         varying vec2 vPaintUV;
                         uniform sampler2D paintTextureSampler;
+                        float finalPaintVal; 
+                    #endif
+                `,
+                "CUSTOM_FRAGMENT_MAIN_BEGIN": `
+                    #ifdef UV2
+                        // A sub-pixel radius (0.75). Large enough to fix the bilinear 
+                        // filtering fade at the seam, but small enough that it physically 
+                        // cannot cross the UV gutter into neighboring islands.
+                        float offset = 0.75 / 2048.0;
+                        
+                        // Sample center and 8 immediate neighbors
+                        float pC = texture2D(paintTextureSampler, vPaintUV).r;
+                        float pN = texture2D(paintTextureSampler, vPaintUV + vec2(0.0, offset)).r;
+                        float pS = texture2D(paintTextureSampler, vPaintUV + vec2(0.0, -offset)).r;
+                        float pE = texture2D(paintTextureSampler, vPaintUV + vec2(offset, 0.0)).r;
+                        float pW = texture2D(paintTextureSampler, vPaintUV + vec2(-offset, 0.0)).r;
+                        float pNE = texture2D(paintTextureSampler, vPaintUV + vec2(offset, offset)).r;
+                        float pNW = texture2D(paintTextureSampler, vPaintUV + vec2(-offset, offset)).r;
+                        float pSE = texture2D(paintTextureSampler, vPaintUV + vec2(offset, -offset)).r;
+                        float pSW = texture2D(paintTextureSampler, vPaintUV + vec2(-offset, -offset)).r;
+                        
+                        // Take the strongest value
+                        float maxCross = max(pC, max(max(pN, pS), max(pE, pW)));
+                        float maxDiag = max(max(pNE, pNW), max(pSE, pSW));
+                        float dilated = max(maxCross, maxDiag);
+                        
+                        // "smoothstep" hardens the edge. If the edge faded to 0.05, 
+                        // this aggressively boosts it closer to 1.0, closing the seam 
+                        // without needing a larger search radius.
+                        finalPaintVal = smoothstep(0.02, 0.2, dilated);
                     #endif
                 `,
                 "CUSTOM_FRAGMENT_UPDATE_ALBEDO": `
                     #ifdef UV2
-                        vec4 paintData = texture2D(paintTextureSampler, vPaintUV);
-                        float rawData = paintData.r;
-
-                        // Pass 3: Visual Layer
-                        // rawData is now a smooth Radial Distance Field from Pass 2.
-                        // 0.0 = Outside 
-                        // 0.5 = The theoretical "Edge"
-                        // 1.0 = Inside 
-                        
-                        // 1. Opacity / Visibility
-                        // We use a smoothstep centered on 0.5 to define the sharp paint edge.
-                        float paintIntensity = smoothstep(0.4, 0.6, rawData);
-                        
-                        if (paintIntensity > 0.01) {
-                            // 2. Bevel / Highlight using Value-Based approach (Stable across seams)
-                            // We avoid dFdx/dFdy because they break at UV discontinuities (seams).
-                            
-                            // Calculate how close we are to the "edge" (0.5).
-                            float distFromEdge = abs(rawData - 0.5);
-                            
-                            // Create a highlight band around the edge
-                            // 0.5 +/- 0.1 => Highlight
-                            float edgeBevel = 1.0 - smoothstep(0.0, 0.1, distFromEdge);
-
-                            vec3 finalVisuals = paintColor;
-                            finalVisuals += vec3(edgeBevel * 0.5); // Stronger Highlight
-                            
-                            // Clean mix
-                            surfaceAlbedo.rgb = mix(surfaceAlbedo.rgb, finalVisuals, paintIntensity);
+                        if (finalPaintVal > 0.01) {
+                            surfaceAlbedo.rgb = mix(surfaceAlbedo.rgb, paintColor, finalPaintVal);
                         }
                     #endif
                 `,
                 "CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS": `
                     #ifdef UV2
-                        vec4 paintDataMR = texture2D(paintTextureSampler, vPaintUV);
-                        float rawDataMR = paintDataMR.r;
-                        
-                        // FIX: Grazing Angle Seams
-                        // When viewing from an angle, mipmaps can bleed unpainted properties (shiny/specular) 
-                        // into the painted edge area. 
-                        // We fix this by making the Roughness/Metallic mask slightly WIDER than the visual Albedo mask.
-                        // The paint becomes matte/non-metallic slightly BEFORE it becomes visible color-wise.
-                        
-                        // Mask starts at 0.05 (visibility) but reaches full matte strength at 0.25 (well before 0.6 core)
-                        float roughnessMask = smoothstep(0.05, 0.25, rawDataMR);
-                        
-                        // Roughness/Metal
-                        metallicRoughness.r = mix(metallicRoughness.r, 0.0, roughnessMask); 
-                        metallicRoughness.g = mix(metallicRoughness.g, 1.0, roughnessMask); 
+                        if (finalPaintVal > 0.01) {
+                            metallicRoughness.r = mix(metallicRoughness.r, 0.0, finalPaintVal); 
+                            metallicRoughness.g = mix(metallicRoughness.g, 1.0, finalPaintVal); 
+                        }
                     #endif
                 `
             };
@@ -145,6 +137,7 @@ export class PaintMaterialPlugin extends MaterialPluginBase {
 
     getAttributes(attributes: string[]): void {
         attributes.push("uv2");
+        attributes.push("uvCentroid");
     }
 
     public getPaintTexture() {
